@@ -9,7 +9,9 @@
 		"test": "vitest run",
 		"deploy": "pnpm run build && wrangler deploy",
 		"preview": "pnpm run build && vite preview",
-		"cf-typegen": "wrangler types"
+		"cf-typegen": "wrangler types",
+		"seed": "tsx drizzle/seed.ts",
+		"clean": "tsx drizzle/clean.ts"
 	},
 	"dependencies": {
 		"@cloudflare/vite-plugin": "^1.13.8",
@@ -29,6 +31,7 @@
 		"clsx": "^2.1.1",
 		"dotenv": "^17.2.3",
 		"drizzle-orm": "^0.44.7",
+		"drizzle-seed": "^0.3.1",
 		"kysely": "^0.28.8",
 		"kysely-d1": "^0.4.0",
 		"lucide-react": "^0.544.0",

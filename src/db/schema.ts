@@ -5,11 +5,14 @@ export const families = pgTable('families', {
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at').defaultNow(),
     definitionId: text('definition_id').notNull().references(() => familyDefinitions.id, { onDelete: 'cascade' }),
+    projectId: text('project_id').notNull().references(() => projects.id, { onDelete: 'cascade' }),
 })
 
 export const familyDefinitions = pgTable('family_definitions', {
     id: text('id').primaryKey().notNull(),
     name: text('definition').notNull(),
+    category: text('category').notNull(),
+    imageStorageKey: text('image_storage_key'),
     createdAt: timestamp('created_at').defaultNow(),
     updatedAt: timestamp('updated_at').defaultNow(),
 })

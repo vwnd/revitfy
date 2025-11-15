@@ -13,10 +13,10 @@
 	"observability": {
 		"enabled": true
 	},
-	"d1_databases": [
+	"r2_buckets": [
 		{
-			"binding": "REVITFY_DATABASE",
-			"database_id": "3e10039c-f7c0-495b-94a5-f16ad515b7d1"
+			"binding": "REVITFY_R2",
+			"bucket_name": "revitfy-storage"
 		}
 	],
 	"routes": [
