@@ -1,10 +1,13 @@
-import { HeadContent, Scripts, createRootRoute } from '@tanstack/react-router'
+import { HeadContent, Outlet, Scripts, createRootRoute, useLoaderData } from '@tanstack/react-router'
 import { TanStackRouterDevtoolsPanel } from '@tanstack/react-router-devtools'
 import { TanStackDevtools } from '@tanstack/react-devtools'
 
 import Header from '../components/Header'
 
 import appCss from '../styles.css?url'
+import { Sidebar } from '@/components/Sidebar'
+import { ThemeProvider } from '@/components/ThemeProvider'
+import { getThemeServerFn } from '@/lib/theme'
 
 export const Route = createRootRoute({
   head: () => ({
@@ -27,19 +30,26 @@ export const Route = createRootRoute({
       },
     ],
   }),
-
+  loader:  () => getThemeServerFn(),
   shellComponent: RootDocument,
 })
 
 function RootDocument({ children }: { children: React.ReactNode }) {
+  const theme = Route.useLoaderData();
+
   return (
-    <html lang="en">
+    <html lang="en" className={theme}>
       <head>
         <HeadContent />
       </head>
       <body>
-        <Header />
-        {children}
+
+        <ThemeProvider theme={theme}>
+          <div className="flex min-h-screen w-full">
+            <Sidebar />
+            {children}
+          </div>
+        </ThemeProvider>
         <TanStackDevtools
           config={{
             position: 'bottom-right',
