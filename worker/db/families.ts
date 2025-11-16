@@ -1,9 +1,8 @@
-import { eq, sql, desc, and, gte, count, inArray } from 'drizzle-orm';
-import { families, familyTypes, familyUsage, familyTypeUsage, familyReactions, projects } from '../../drizzle/schema';
+import { eq, sql, desc, and, gte, count } from 'drizzle-orm';
+import { families, familyUsage, familyReactions, projects } from '../../drizzle/schema';
 import type { InferSelectModel } from 'drizzle-orm';
 
 type Family = InferSelectModel<typeof families>;
-type FamilyType = InferSelectModel<typeof familyTypes>;
 type Db = ReturnType<typeof import('../db').getDb>;
 
 export interface FamilyDetailResult {
@@ -14,11 +13,6 @@ export interface FamilyDetailResult {
   likesCount: number;
   dislikesCount: number;
   lastUsed: string;
-  types: Array<{
-    id: string;
-    name: string;
-    usageCount: number;
-  }>;
   usageStatistics: {
     relatedProjects: Array<{
       projectId: string;
@@ -51,32 +45,6 @@ export async function getFamilyById(db: Db, familyId: string): Promise<FamilyDet
   if (!family) {
     return null;
   }
-
-  // Get all types for this family
-  const types = await db
-    .select({
-      id: familyTypes.id,
-      name: familyTypes.name,
-    })
-    .from(familyTypes)
-    .where(eq(familyTypes.familyId, familyId));
-
-  // Get usage counts for each type
-  const typeIds = types.map(t => t.id);
-  const typeUsageCounts = typeIds.length > 0
-    ? await db
-        .select({
-          typeId: familyTypeUsage.typeId,
-          usageCount: sql<number>`COALESCE(SUM(${familyTypeUsage.usageCount}), 0)`.as('usage_count'),
-        })
-        .from(familyTypeUsage)
-        .where(inArray(familyTypeUsage.typeId, typeIds))
-        .groupBy(familyTypeUsage.typeId)
-    : [];
-
-  const typeUsageMap = new Map(
-    typeUsageCounts.map(t => [t.typeId, Number(t.usageCount)])
-  );
 
   // Get total family usage count
   const [familyUsageResult] = await db
@@ -210,11 +178,6 @@ export async function getFamilyById(db: Db, familyId: string): Promise<FamilyDet
     likesCount: likesCount,
     dislikesCount: dislikesCount,
     lastUsed,
-    types: types.map(type => ({
-      id: type.id,
-      name: type.name,
-      usageCount: typeUsageMap.get(type.id) || 0,
-    })),
     usageStatistics: {
       relatedProjects: usageByProject.map(p => ({
         projectId: p.projectId,

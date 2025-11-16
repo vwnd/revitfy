@@ -82,21 +82,6 @@ export const families = pgTable("families", {
 	index("families_category_idx").on(table.category),
 ]);
 
-export const familyTypes = pgTable("family_types", {
-	id: text().primaryKey().notNull(),
-	familyId: text("family_id").notNull(),
-	name: text().notNull(),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-		columns: [table.familyId],
-		foreignColumns: [families.id],
-		name: "family_types_family_id_families_id_fk"
-	}).onDelete("cascade"),
-	index("family_types_family_id_idx").on(table.familyId),
-]);
-
 export const familyUsage = pgTable("family_usage", {
 	id: text().primaryKey().notNull(),
 	familyId: text("family_id").notNull(),
@@ -120,30 +105,6 @@ export const familyUsage = pgTable("family_usage", {
 	index("family_usage_family_id_idx").on(table.familyId),
 	index("family_usage_project_id_idx").on(table.projectId),
 	index("family_usage_last_used_idx").on(table.lastUsed),
-]);
-
-export const familyTypeUsage = pgTable("family_type_usage", {
-	id: text().primaryKey().notNull(),
-	typeId: text("type_id").notNull(),
-	projectId: text("project_id").notNull(),
-	usageCount: integer("usage_count").default(0).notNull(),
-	lastUsed: timestamp("last_used", { mode: 'string' }).defaultNow().notNull(),
-	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
-	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
-}, (table) => [
-	foreignKey({
-		columns: [table.typeId],
-		foreignColumns: [familyTypes.id],
-		name: "family_type_usage_type_id_family_types_id_fk"
-	}).onDelete("cascade"),
-	foreignKey({
-		columns: [table.projectId],
-		foreignColumns: [projects.id],
-		name: "family_type_usage_project_id_projects_id_fk"
-	}).onDelete("cascade"),
-	unique("family_type_usage_type_project_unique").on(table.typeId, table.projectId),
-	index("family_type_usage_type_id_idx").on(table.typeId),
-	index("family_type_usage_project_id_idx").on(table.projectId),
 ]);
 
 export const familyReactions = pgTable("family_reactions", {

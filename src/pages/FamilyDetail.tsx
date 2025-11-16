@@ -155,7 +155,7 @@ export default function FamilyDetail() {
 
   if (!family) {
     return (
-      <div className="min-h-screen ml-64 flex items-center justify-center">
+      <div className="min-h-screen ml-64 mx-auto w-full flex items-center justify-center">
         <div className="text-muted-foreground">Family not found</div>
       </div>
     );

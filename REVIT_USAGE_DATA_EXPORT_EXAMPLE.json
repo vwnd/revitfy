@@ -1,0 +1,68 @@
+{
+  "description": "Example JSON export format for familyUsage data from Revit",
+  "exportMetadata": {
+    "version": "1.0",
+    "exportDate": "2024-01-15T10:30:00.000Z",
+    "revitVersion": "2024",
+    "projectName": "Example Building Project"
+  },
+  "familyUsage": [
+    {
+      "id": "fu_abc123def456",
+      "familyId": "fam_wall_basic_001",
+      "projectId": "proj_2024_office_building_001",
+      "usageCount": 42,
+      "lastUsed": "2024-01-15T09:45:23.000Z",
+      "createdAt": "2024-01-10T08:00:00.000Z",
+      "updatedAt": "2024-01-15T09:45:23.000Z"
+    },
+    {
+      "id": "fu_xyz789ghi012",
+      "familyId": "fam_door_single_001",
+      "projectId": "proj_2024_office_building_001",
+      "usageCount": 18,
+      "lastUsed": "2024-01-14T14:22:10.000Z",
+      "createdAt": "2024-01-10T08:00:00.000Z",
+      "updatedAt": "2024-01-14T14:22:10.000Z"
+    },
+    {
+      "id": "fu_mno345pqr678",
+      "familyId": "fam_window_double_001",
+      "projectId": "proj_2024_office_building_001",
+      "usageCount": 35,
+      "lastUsed": "2024-01-15T10:15:00.000Z",
+      "createdAt": "2024-01-10T08:00:00.000Z",
+      "updatedAt": "2024-01-15T10:15:00.000Z"
+    },
+    {
+      "id": "fu_stu901vwx234",
+      "familyId": "fam_column_round_001",
+      "projectId": "proj_2024_office_building_001",
+      "usageCount": 28,
+      "lastUsed": "2024-01-13T11:30:15.000Z",
+      "createdAt": "2024-01-10T08:00:00.000Z",
+      "updatedAt": "2024-01-13T11:30:15.000Z"
+    }
+  ],
+  "fieldDescriptions": {
+    "familyUsage": {
+      "id": "Unique identifier for the family usage record (text, primary key). Generate a unique ID for each family-project combination.",
+      "familyId": "Reference to the family ID (text, required). This should match the family.id from the families table. Extract the unique family identifier from Revit (e.g., Family.Name or a unique identifier you generate).",
+      "projectId": "Reference to the project ID (text, required). This should match the project.id from the projects table. Extract the unique project identifier from Revit (e.g., Document.Title or a unique identifier you generate).",
+      "usageCount": "Total number of times this family has been used/placed in the project (integer, default: 0, required). Count ALL instances of the family across all types in the project. This should be the sum of all instances regardless of which type they are.",
+      "lastUsed": "ISO 8601 timestamp string of when this family was last used/placed in the project (timestamp as string, required). Format: YYYY-MM-DDTHH:mm:ss.sssZ. This should be the most recent timestamp when ANY instance of the family (regardless of type) was placed or modified.",
+      "createdAt": "ISO 8601 timestamp string of when this usage record was first created (timestamp as string, required). Format: YYYY-MM-DDTHH:mm:ss.sssZ. Typically set when the family is first used in the project.",
+      "updatedAt": "ISO 8601 timestamp string of when this usage record was last updated (timestamp as string, required). Format: YYYY-MM-DDTHH:mm:ss.sssZ. Should match lastUsed when updating usage counts."
+    }
+  },
+  "importantNotes": [
+    "All timestamps must be in ISO 8601 format as strings (e.g., '2024-01-15T10:30:00.000Z')",
+    "The combination of (familyId, projectId) must be unique for familyUsage records - one record per family per project",
+    "usageCount should reflect the TOTAL number of instances placed in the project, counting all instances of the family regardless of type",
+    "lastUsed should be the most recent timestamp when any instance of the family was placed or modified",
+    "If a family is not used in a project, you may omit it from the export (or include with usageCount: 0)",
+    "IDs should be unique strings - consider using UUIDs or a prefixed identifier system",
+    "Only track usage at the family level - do not track individual family types",
+    "When counting usage, aggregate all instances of a family across all its types"
+  ]
+}
