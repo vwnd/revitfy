@@ -1,11 +1,9 @@
 import { AwsClient } from 'aws4fetch'
 import { Hono } from 'hono'
 import { getDb } from './db'
-import { getFamilyById } from './db/families'
-import { families } from '../drizzle/schema'
-import { eq } from 'drizzle-orm'
+import familyRoutes, { updateFamilyPreviewImage } from './family'
 
-interface Context {
+export interface Context {
   Bindings: {
     R2_ACCESS_KEY_ID: string
     R2_SECRET_ACCESS_KEY: string
@@ -143,25 +141,8 @@ app.get('/api/recently-used', (c) => {
   })
 })
 
-app.get('/api/family/:id', async (c) => {
-  const { id } = c.req.param()
-  const db = c.get('db')
-  
-  try {
-    const family = await getFamilyById(db, id)
-    
-    if (!family) {
-      return c.json({ error: 'Family not found' }, 404)
-    }
-
-    return c.json({
-      data: family
-    })
-  } catch (error) {
-    console.error('Error fetching family:', error)
-    return c.json({ error: 'Internal server error' }, 500)
-  }
-})
+// Mount family routes
+app.route('/api/family', familyRoutes)
 
 app.post('/api/create-upload-url', async (c) => {
   const { familyId, fileName, objectType, objectId } = await c.req.json()
@@ -188,17 +169,14 @@ const db = c.get('db')
   const signed = await client.sign(new Request(url, {method: 'PUT'}), { aws: { signQuery: true }})
 
   if (objectType === "family") {
-    const family = await db.query.families.findFirst({
-      where: eq(families.id, objectId),
-    })
-    
-    if (!family) {
-      return c.json({ error: 'Family not found' }, 404)
+    try {
+      await updateFamilyPreviewImage(db, objectId, filePath)
+    } catch (error) {
+      if (error instanceof Error && error.message === 'Family not found') {
+        return c.json({ error: 'Family not found' }, 404)
+      }
+      throw error
     }
-
-    await db.update(families).set({
-      previewImageStorageKey: filePath,
-    }).where(eq(families.id, objectId))
   }
 
   return c.json({
