@@ -279,9 +279,13 @@ export default function PlaylistDetail() {
       <div className="w-full h-full overflow-auto bg-gradient-to-b from-purple-900/20 via-background to-background">
         {/* Hero Section Skeleton */}
         <div className="p-8 pb-4">
-          <div className="mb-6 space-y-4">
-            <Skeleton className="h-16 w-96" />
-            <Skeleton className="h-4 w-64" />
+          <div className="flex gap-6 items-end mb-6">
+            <Skeleton className="w-64 h-64 rounded-lg flex-shrink-0" />
+            <div className="flex-1 pb-2 space-y-4">
+              <Skeleton className="h-4 w-24" />
+              <Skeleton className="h-16 w-96" />
+              <Skeleton className="h-4 w-64" />
+            </div>
           </div>
           <div className="flex gap-2 items-center">
             <Skeleton className="h-14 w-32 rounded-full" />
@@ -350,26 +354,72 @@ export default function PlaylistDetail() {
   // Set initial liked state based on playlist data
   // TODO: Check if current user has liked this playlist
 
+  const previewImageUrl = playlist.previewImageStorageKey
+    ? `/api/storage/${playlist.previewImageStorageKey}`
+    : null;
+
   return (
     <div className="w-full h-full overflow-auto bg-gradient-to-b from-purple-900/20 via-background to-background">
-      {/* Hero Section */}
+      {/* Hero Section with Preview Image */}
       <div className="p-8 pb-4">
-        {/* Playlist Info */}
-        <div className="mb-6">
-          <h1 className="text-6xl font-bold mb-4 text-white">{playlist.name}</h1>
-          <div className="flex items-center gap-2 text-sm text-muted-foreground">
-            <span>By {playlist.userName || "Unknown User"}</span>
-            <span>•</span>
-            <span>{playlist.likesCount} {playlist.likesCount === 1 ? "like" : "likes"}</span>
-            <span>•</span>
-            <span>{playlist.familiesCount} {playlist.familiesCount === 1 ? "family" : "families"}</span>
-            <span>•</span>
-            <span>{Math.round(totalSizeMB)} MB</span>
+        <div className="flex gap-6 items-end mb-6">
+          {/* Preview Image - Square on Left */}
+          <div 
+            className={cn(
+              "w-64 h-64 bg-card rounded-lg shadow-2xl flex items-center justify-center transition-colors relative overflow-hidden flex-shrink-0",
+              !isLoading && "cursor-pointer group"
+            )}
+            onClick={!isLoading ? handleNoPreviewClick : undefined}
+          >
+            {previewImageUrl ? (
+              <>
+                <img
+                  src={previewImageUrl}
+                  alt={playlist.name}
+                  className="w-full h-full object-cover"
+                />
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-colors flex items-center justify-center opacity-0 group-hover:opacity-100">
+                  <div className="text-white text-sm font-medium bg-black/70 px-4 py-2 rounded-full">
+                    Change preview
+                  </div>
+                </div>
+              </>
+            ) : (
+              <div className="text-center space-y-3 p-4">
+                <Upload className="w-12 h-12 mx-auto text-muted-foreground" />
+                <div className="text-muted-foreground font-medium text-sm">No Preview</div>
+                <div className="text-xs text-muted-foreground">
+                  Click to upload
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Playlist Info - Right Side */}
+          <div className="flex-1 pb-2">
+            <p className="text-sm font-semibold uppercase tracking-wider mb-2 text-muted-foreground">
+              Playlist
+            </p>
+            <h1 className="text-6xl font-bold mb-4 text-white leading-tight">{playlist.name}</h1>
+            {playlist.description && (
+              <p className="text-muted-foreground mb-4 text-sm">
+                {playlist.description}
+              </p>
+            )}
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <span>{playlist.userName || "Unknown User"}</span>
+              <span>•</span>
+              <span>{playlist.likesCount} {playlist.likesCount === 1 ? "like" : "likes"}</span>
+              <span>•</span>
+              <span>{playlist.familiesCount} {playlist.familiesCount === 1 ? "family" : "families"}</span>
+              <span>•</span>
+              <span>{Math.round(totalSizeMB)} MB</span>
+            </div>
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex gap-2 items-center">
+        <div className="flex gap-2 items-center mt-6">
           <Button 
             size="lg" 
             className="rounded-full px-8 gap-2 bg-green-500 hover:bg-green-600 text-white h-14"
