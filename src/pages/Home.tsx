@@ -2,6 +2,8 @@ import { FilterBar } from "@/components/FilterBar";
 import { FamilyCard } from "@/components/FamilyCard";
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useSidebar } from "@/contexts/SidebarContext";
+import { cn } from "@/lib/utils";
 const mockFamilies = [
   {
     id: "1",
@@ -54,6 +56,7 @@ const mockFamilies = [
 ];
 export default function Home() {
   const [name, setName] = useState(null);
+  const { isCollapsed } = useSidebar();
 
   const { data: madeForYou, isLoading } = useQuery({
     queryKey: ["made-for-you"],
@@ -61,7 +64,7 @@ export default function Home() {
   });
 
   return (
-    <div className="min-h-screen ml-64">
+    <div className={cn("min-h-screen transition-all duration-200 ease-in-out", isCollapsed ? "ml-16" : "ml-64")}>
       <div className="p-8">
         <FilterBar />
 

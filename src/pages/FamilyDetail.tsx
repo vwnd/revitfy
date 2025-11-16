@@ -1,5 +1,7 @@
 import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
+import { useSidebar } from "@/contexts/SidebarContext";
+import { cn } from "@/lib/utils";
 import {
   Sheet,
   SheetContent,
@@ -59,6 +61,7 @@ interface FamilyDetail {
 
 export default function FamilyDetail() {
   const { id } = useParams();
+  const { isCollapsed } = useSidebar();
   const [isLiked, setIsLiked] = useState(false);
   const [thumbsUp, setThumbsUp] = useState(false);
   const [thumbsDown, setThumbsDown] = useState(false);
@@ -147,7 +150,12 @@ export default function FamilyDetail() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen ml-64 flex items-center justify-center">
+      <div
+        className={cn(
+          "min-h-screen flex items-center justify-center transition-all duration-200 ease-in-out",
+          isCollapsed ? "ml-16" : "ml-64"
+        )}
+      >
         <div className="text-muted-foreground">Loading...</div>
       </div>
     );
@@ -155,14 +163,24 @@ export default function FamilyDetail() {
 
   if (!family) {
     return (
-      <div className="min-h-screen ml-64 mx-auto w-full flex items-center justify-center">
+      <div
+        className={cn(
+          "min-h-screen mx-auto w-full flex items-center justify-center transition-all duration-200 ease-in-out",
+          isCollapsed ? "ml-16" : "ml-64"
+        )}
+      >
         <div className="text-muted-foreground">Family not found</div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen ml-64">
+    <div
+      className={cn(
+        "min-h-screen transition-all duration-200 ease-in-out",
+        isCollapsed ? "ml-16" : "ml-64"
+      )}
+    >
       {/* Hero Section */}
       <div className="bg-gradient-to-b from-secondary to-background p-8">
         <div className="flex gap-8 items-end">

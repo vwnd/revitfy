@@ -1,6 +1,8 @@
 import { FamilyCard } from "@/components/FamilyCard";
 import { Button } from "@/components/ui/button";
 import { Plus } from "lucide-react";
+import { useSidebar } from "@/contexts/SidebarContext";
+import { cn } from "@/lib/utils";
 
 const mockPlaylists = [
   {
@@ -42,8 +44,10 @@ const mockFamilies = [
 ];
 
 export default function Library() {
+  const { isCollapsed } = useSidebar();
+  
   return (
-    <div className="min-h-screen ml-64">
+    <div className={cn("min-h-screen transition-all duration-200 ease-in-out", isCollapsed ? "ml-16" : "ml-64")}>
       <div className="p-8">
         <div className="mb-8 flex justify-between items-center">
           <div>
