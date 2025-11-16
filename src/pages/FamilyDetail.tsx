@@ -39,7 +39,8 @@ interface FamilyDetail {
   likesCount: number;
   dislikesCount: number;
   lastUsed: string;
-  types: FamilyType[];
+  previewImageStorageKey?: string;
+  types?: FamilyType[];
   usageStatistics: {
     relatedProjects: Array<{
       projectId: string;
@@ -71,12 +72,23 @@ export default function FamilyDetail() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: familyData, isLoading } = useQuery({
+  const { data: familyData, isLoading, error } = useQuery({
     queryKey: ["family", id],
-    queryFn: () => fetch(`/api/family/${id}`).then((res) => res.json()),
+    queryFn: async () => {
+      const res = await fetch(`/api/family/${id}`);
+      if (!res.ok) {
+        throw new Error(`Failed to fetch family: ${res.statusText}`);
+      }
+      return res.json();
+    },
   });
 
   const family: FamilyDetail | undefined = familyData?.data;
+
+  // Construct preview image URL from storage key
+  const previewImageUrl = family?.previewImageStorageKey
+    ? `/api/storage/${family.previewImageStorageKey}`
+    : null;
 
   const likeMutation = useMutation({
     mutationFn: async () => {
@@ -176,7 +188,7 @@ export default function FamilyDetail() {
         throw new Error("Failed to get upload URL");
       }
 
-      const { uploadUrl } = await response.json();
+      const { uploadUrl, storageKey } = await response.json();
 
       // Upload the file to the signed URL
       const uploadResponse = await fetch(uploadUrl, {
@@ -191,18 +203,34 @@ export default function FamilyDetail() {
         throw new Error("Failed to upload file");
       }
 
-      // Create a preview URL (you may need to adjust this based on your R2 public URL)
-      // For now, we'll use a data URL for immediate preview
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
+      // Update family preview image storage key
+      const updateResponse = await fetch(`/api/family/${id}/preview-image`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ storageKey }),
+      });
+
+      if (!updateResponse.ok) {
+        throw new Error("Failed to update family preview");
+      }
+
+      // Invalidate query to refresh the family data
+      queryClient.invalidateQueries({ queryKey: ["family", id] });
 
       setShowUploadDialog(false);
+      toast({
+        title: "Preview updated",
+        description: "The family preview image has been updated.",
+      });
     } catch (error) {
       console.error("Upload error:", error);
-      alert("Failed to upload image. Please try again.");
+      toast({
+        title: "Upload failed",
+        description: error instanceof Error ? error.message : "Failed to upload image. Please try again.",
+        variant: "destructive",
+      });
     } finally {
       setUploading(false);
       // Reset file input
@@ -214,15 +242,23 @@ export default function FamilyDetail() {
 
   if (isLoading) {
     return (
-      <div className="w-full h-full flex items-center justify-center">
+      <div className="w-full h-full flex items-center justify-center bg-background">
         <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="w-full h-full flex items-center justify-center bg-background">
+        <div className="text-destructive">Error loading family: {error instanceof Error ? error.message : "Unknown error"}</div>
       </div>
     );
   }
 
   if (!family) {
     return (
-      <div className="w-full h-full flex items-center justify-center">
+      <div className="w-full h-full flex items-center justify-center bg-background">
         <div className="text-muted-foreground">Family not found</div>
       </div>
     );
@@ -238,9 +274,9 @@ export default function FamilyDetail() {
             className="w-64 h-64 bg-card rounded-lg shadow-2xl flex items-center justify-center cursor-pointer hover:bg-secondary transition-colors relative overflow-hidden"
             onClick={handleNoPreviewClick}
           >
-            {previewImage ? (
+            {previewImage || previewImageUrl ? (
               <img
-                src={previewImage}
+                src={previewImage || previewImageUrl || ""}
                 alt={family.name}
                 className="w-full h-full object-cover"
               />
@@ -266,10 +302,14 @@ export default function FamilyDetail() {
               <span className="text-muted-foreground">
                 {family.usageCount.toLocaleString()} total uses
               </span>
-              <span className="text-muted-foreground">•</span>
-              <span className="text-muted-foreground">
-                {family.types.length} types
-              </span>
+              {family.types && family.types.length > 0 && (
+                <>
+                  <span className="text-muted-foreground">•</span>
+                  <span className="text-muted-foreground">
+                    {family.types.length} types
+                  </span>
+                </>
+              )}
               <span className="text-muted-foreground">•</span>
               <span className="text-muted-foreground">
                 {family.likesCount} likes
@@ -333,10 +373,11 @@ export default function FamilyDetail() {
       </div>
 
       {/* Family Types Table */}
-      <div className="p-8">
-        <h2 className="text-2xl font-bold mb-6">Family Types</h2>
-        <div className="space-y-2">
-          {family.types.map((type, index) => (
+      {family.types && family.types.length > 0 && (
+        <div className="p-8">
+          <h2 className="text-2xl font-bold mb-6">Family Types</h2>
+          <div className="space-y-2">
+            {family.types.map((type, index) => (
             <div
               key={type.id}
               className="flex items-center gap-4 p-4 rounded-md hover:bg-secondary transition-colors group cursor-pointer"
@@ -362,8 +403,9 @@ export default function FamilyDetail() {
               </Button>
             </div>
           ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* Usage Stats */}
       <div className="p-8">

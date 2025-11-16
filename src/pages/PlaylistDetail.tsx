@@ -18,6 +18,8 @@ import {
   Download,
   Save,
   Search,
+  ThumbsUp,
+  ThumbsDown,
 } from "lucide-react";
 import { useState, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
@@ -58,6 +60,8 @@ export default function PlaylistDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
   const [isLiked, setIsLiked] = useState(false);
+  const [thumbsUp, setThumbsUp] = useState(false);
+  const [thumbsDown, setThumbsDown] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showAddFamilyDialog, setShowAddFamilyDialog] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -131,6 +135,8 @@ export default function PlaylistDetail() {
     },
     onSuccess: (data) => {
       setIsLiked(data.reaction === "like");
+      setThumbsUp(data.reaction === "like");
+      setThumbsDown(data.reaction === "dislike");
       queryClient.invalidateQueries({ queryKey: ["playlist", id] });
       queryClient.invalidateQueries({ queryKey: ["made-for-you"] });
       queryClient.invalidateQueries({ queryKey: ["recently-used"] });
@@ -163,6 +169,8 @@ export default function PlaylistDetail() {
     },
     onSuccess: (data) => {
       setIsLiked(false);
+      setThumbsUp(data.reaction === "like");
+      setThumbsDown(data.reaction === "dislike");
       queryClient.invalidateQueries({ queryKey: ["playlist", id] });
       queryClient.invalidateQueries({ queryKey: ["made-for-you"] });
       queryClient.invalidateQueries({ queryKey: ["recently-used"] });
@@ -509,6 +517,24 @@ export default function PlaylistDetail() {
             disabled={isLoading}
           >
             <Upload className="w-6 h-6" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="rounded-full w-12 h-12 hover:bg-white/10"
+            onClick={() => likeMutation.mutate()}
+            disabled={isLoading || likeMutation.isPending || dislikeMutation.isPending}
+          >
+            <ThumbsUp className={`w-6 h-6 ${thumbsUp ? "fill-primary text-primary" : ""}`} />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="rounded-full w-12 h-12 hover:bg-white/10"
+            onClick={() => dislikeMutation.mutate()}
+            disabled={isLoading || likeMutation.isPending || dislikeMutation.isPending}
+          >
+            <ThumbsDown className={`w-6 h-6 ${thumbsDown ? "fill-destructive text-destructive" : ""}`} />
           </Button>
           <Button 
             size="icon" 

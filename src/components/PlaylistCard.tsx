@@ -1,4 +1,4 @@
-import { Heart, Play, Music } from "lucide-react";
+import { Play, Music, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useState } from "react";
@@ -24,6 +24,8 @@ export function PlaylistCard({
   previewImageStorageKey,
 }: PlaylistCardProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [thumbsUp, setThumbsUp] = useState(false);
+  const [thumbsDown, setThumbsDown] = useState(false);
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -42,7 +44,39 @@ export function PlaylistCard({
       }
       return response.json();
     },
-    onSuccess: () => {
+    onSuccess: (data) => {
+      setThumbsUp(data.reaction === "like");
+      setThumbsDown(data.reaction === "dislike");
+      queryClient.invalidateQueries({ queryKey: ["made-for-you"] });
+      queryClient.invalidateQueries({ queryKey: ["recently-used"] });
+      queryClient.invalidateQueries({ queryKey: ["playlist", id] });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const dislikeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/playlist/${id}/dislike`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to dislike playlist");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setThumbsUp(data.reaction === "like");
+      setThumbsDown(data.reaction === "dislike");
       queryClient.invalidateQueries({ queryKey: ["made-for-you"] });
       queryClient.invalidateQueries({ queryKey: ["recently-used"] });
       queryClient.invalidateQueries({ queryKey: ["playlist", id] });
@@ -112,8 +146,21 @@ export function PlaylistCard({
             e.stopPropagation();
             likeMutation.mutate();
           }}
+          disabled={likeMutation.isPending || dislikeMutation.isPending}
         >
-          <Heart className="w-4 h-4" />
+          <ThumbsUp className={`w-4 h-4 ${thumbsUp ? "fill-primary text-primary" : ""}`} />
+        </Button>
+        <Button
+          size="icon"
+          variant="ghost"
+          className="h-8 w-8"
+          onClick={(e) => {
+            e.stopPropagation();
+            dislikeMutation.mutate();
+          }}
+          disabled={likeMutation.isPending || dislikeMutation.isPending}
+        >
+          <ThumbsDown className={`w-4 h-4 ${thumbsDown ? "fill-destructive text-destructive" : ""}`} />
         </Button>
       </div>
     </Card>

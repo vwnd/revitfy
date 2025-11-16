@@ -14,6 +14,7 @@ export interface FamilyDetailResult {
   likesCount: number;
   dislikesCount: number;
   lastUsed: string;
+  previewImageStorageKey?: string;
   usageStatistics: {
     relatedProjects: Array<{
       projectId: string;
@@ -179,6 +180,7 @@ export async function getFamilyById(db: Db, familyId: string): Promise<FamilyDet
     likesCount: likesCount,
     dislikesCount: dislikesCount,
     lastUsed,
+    previewImageStorageKey: family.previewImageStorageKey || undefined,
     usageStatistics: {
       relatedProjects: usageByProject.map(p => ({
         projectId: p.projectId,
