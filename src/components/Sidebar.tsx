@@ -104,12 +104,25 @@ export function Sidebar() {
     >
       <div
         className={cn(
-          "p-6 flex items-center transition-all duration-200 ease-in-out",
-          isCollapsed ? "px-3 justify-center" : "justify-between"
+          "p-6 flex transition-all duration-200 ease-in-out",
+          isCollapsed ? "px-3 flex-col items-center gap-3" : "items-center justify-between"
         )}
       >
-        {!isCollapsed && (
-          <h1 className="text-2xl font-bold text-primary">Revitfy</h1>
+        {!isCollapsed ? (
+          <div className="flex items-center gap-3">
+            <img 
+              src="/revitfy-logo-white.png" 
+              alt="Revitfy Logo" 
+              className="h-8 w-8 shrink-0"
+            />
+            <h1 className="text-2xl font-bold text-white">Revitfy</h1>
+          </div>
+        ) : (
+          <img 
+            src="/revitfy-logo-white.png" 
+            alt="Revitfy Logo" 
+            className="h-8 w-8 shrink-0"
+          />
         )}
         <Tooltip>
           <TooltipTrigger asChild>

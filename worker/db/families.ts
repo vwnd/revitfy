@@ -287,6 +287,74 @@ export async function deleteFamily(db: Db, familyId: string): Promise<boolean> {
 }
 
 /**
+ * React to a family (like or dislike)
+ * Returns the current reaction state: 'like', 'dislike', or null (no reaction)
+ */
+export async function reactToFamily(
+  db: Db,
+  familyId: string,
+  userId: string,
+  reactionType: 'like' | 'dislike'
+): Promise<'like' | 'dislike' | null> {
+  // Check if family exists
+  const family = await db.query.families.findFirst({
+    where: eq(families.id, familyId),
+  });
+
+  if (!family) {
+    throw new Error('Family not found');
+  }
+
+  // Check if user already has a reaction
+  const existing = await db.query.familyReactions.findFirst({
+    where: and(
+      eq(familyReactions.familyId, familyId),
+      eq(familyReactions.userId, userId)
+    ),
+  });
+
+  if (existing) {
+    if (existing.reactionType === reactionType) {
+      // Same reaction - remove it (toggle off)
+      await db
+        .delete(familyReactions)
+        .where(
+          and(
+            eq(familyReactions.familyId, familyId),
+            eq(familyReactions.userId, userId)
+          )
+        );
+      return null;
+    } else {
+      // Different reaction - update it
+      await db
+        .update(familyReactions)
+        .set({
+          reactionType,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(
+          and(
+            eq(familyReactions.familyId, familyId),
+            eq(familyReactions.userId, userId)
+          )
+        );
+      return reactionType;
+    }
+  } else {
+    // No existing reaction - add new one
+    const id = `${familyId}-${userId}`;
+    await db.insert(familyReactions).values({
+      id,
+      familyId,
+      userId,
+      reactionType,
+    });
+    return reactionType;
+  }
+}
+
+/**
  * Format timestamp to relative time string (e.g., "2 days ago")
  */
 function formatRelativeTime(timestamp: string): string {

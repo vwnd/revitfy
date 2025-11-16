@@ -28,9 +28,6 @@ export function PlaylistCard({
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  // TODO: Get userId from auth context
-  const userId = "user-1"; // Placeholder - replace with actual auth
-
   const likeMutation = useMutation({
     mutationFn: async () => {
       const response = await fetch(`/api/playlist/${id}/like`, {
@@ -38,19 +35,22 @@ export function PlaylistCard({
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ userId }),
       });
-      if (!response.ok) throw new Error("Failed to like playlist");
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to like playlist");
+      }
       return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["made-for-you"] });
       queryClient.invalidateQueries({ queryKey: ["recently-used"] });
+      queryClient.invalidateQueries({ queryKey: ["playlist", id] });
     },
-    onError: () => {
+    onError: (error: Error) => {
       toast({
         title: "Error",
-        description: "Failed to like playlist",
+        description: error.message,
         variant: "destructive",
       });
     },

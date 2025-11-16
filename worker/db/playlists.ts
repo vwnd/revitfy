@@ -63,7 +63,12 @@ export async function getPlaylistById(
       count: count(),
     })
     .from(playlistReactions)
-    .where(eq(playlistReactions.playlistId, playlistId));
+    .where(
+      and(
+        eq(playlistReactions.playlistId, playlistId),
+        eq(playlistReactions.reactionType, 'like')
+      )
+    );
 
   const likesCount = Number(likesResult?.count || 0);
 
@@ -174,13 +179,27 @@ export async function updatePlaylistPreviewImage(
 }
 
 /**
- * Like a playlist
+ * Like a playlist (kept for backward compatibility)
  */
 export async function likePlaylist(
   db: Db,
   playlistId: string,
   userId: string
 ): Promise<boolean> {
+  const reaction = await reactToPlaylist(db, playlistId, userId, 'like');
+  return reaction === 'like';
+}
+
+/**
+ * React to a playlist (like or dislike)
+ * Returns the current reaction state: 'like', 'dislike', or null (no reaction)
+ */
+export async function reactToPlaylist(
+  db: Db,
+  playlistId: string,
+  userId: string,
+  reactionType: 'like' | 'dislike'
+): Promise<'like' | 'dislike' | null> {
   // Check if playlist exists
   const playlist = await db.query.playlists.findFirst({
     where: eq(playlists.id, playlistId),
@@ -190,7 +209,7 @@ export async function likePlaylist(
     throw new Error('Playlist not found');
   }
 
-  // Check if already liked
+  // Check if user already has a reaction
   const existing = await db.query.playlistReactions.findFirst({
     where: and(
       eq(playlistReactions.playlistId, playlistId),
@@ -199,25 +218,43 @@ export async function likePlaylist(
   });
 
   if (existing) {
-    // Unlike (remove the reaction)
-    await db
-      .delete(playlistReactions)
-      .where(
-        and(
-          eq(playlistReactions.playlistId, playlistId),
-          eq(playlistReactions.userId, userId)
-        )
-      );
-    return false; // Return false to indicate unliked
+    if (existing.reactionType === reactionType) {
+      // Same reaction - remove it (toggle off)
+      await db
+        .delete(playlistReactions)
+        .where(
+          and(
+            eq(playlistReactions.playlistId, playlistId),
+            eq(playlistReactions.userId, userId)
+          )
+        );
+      return null;
+    } else {
+      // Different reaction - update it
+      await db
+        .update(playlistReactions)
+        .set({
+          reactionType,
+          updatedAt: new Date().toISOString(),
+        })
+        .where(
+          and(
+            eq(playlistReactions.playlistId, playlistId),
+            eq(playlistReactions.userId, userId)
+          )
+        );
+      return reactionType;
+    }
   } else {
-    // Like (add the reaction)
+    // No existing reaction - add new one
     const id = `${playlistId}-${userId}`;
     await db.insert(playlistReactions).values({
       id,
       playlistId,
       userId,
+      reactionType,
     });
-    return true; // Return true to indicate liked
+    return reactionType;
   }
 }
 
@@ -259,7 +296,12 @@ export async function getAllPlaylistsWithDetails(
           count: count(),
         })
         .from(playlistReactions)
-        .where(eq(playlistReactions.playlistId, playlist.id));
+        .where(
+          and(
+            eq(playlistReactions.playlistId, playlist.id),
+            eq(playlistReactions.reactionType, 'like')
+          )
+        );
 
       const likesCount = Number(likesResult?.count || 0);
 

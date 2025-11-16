@@ -175,6 +175,7 @@ export const playlistReactions = pgTable("playlist_reactions", {
 	id: text().primaryKey().notNull(),
 	playlistId: text("playlist_id").notNull(),
 	userId: text("user_id").notNull(),
+	reactionType: text("reaction_type").notNull(), // 'like' or 'dislike'
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
 }, (table) => [

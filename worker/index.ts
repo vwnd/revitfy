@@ -14,6 +14,7 @@ export interface Context {
   }
   Variables: {
     db: ReturnType<typeof getDb>
+    userId?: string
   }
 }
 
@@ -28,6 +29,37 @@ app.on(["POST", "GET"], "/api/auth/*", async (c) => {
 // Database helper middleware
 app.use('*', async (c, next) => {
   c.set('db', getDb(c.env))
+  await next()
+})
+
+// Auth middleware to extract user from session
+app.use('*', async (c, next) => {
+  // Skip auth for auth routes
+  if (c.req.path.startsWith('/api/auth/')) {
+    await next()
+    return
+  }
+
+  try {
+    const { getAuth } = await import('./auth')
+    const auth = getAuth(c.env)
+    
+    // Get session from request headers (cookies are included in headers)
+    const session = await auth.api.getSession({ 
+      headers: c.req.raw.headers
+    })
+    
+    if (session?.user?.id) {
+      c.set('userId', session.user.id)
+    }
+  } catch (error) {
+    // If auth fails, continue without userId (for public endpoints)
+    // Don't log errors for unauthenticated requests as they're expected
+    if (error instanceof Error && !error.message.includes('session')) {
+      console.error('Auth middleware error:', error)
+    }
+  }
+  
   await next()
 })
 

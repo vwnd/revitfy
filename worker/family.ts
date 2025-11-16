@@ -5,6 +5,7 @@ import {
   createFamily,
   listFamilies,
   deleteFamily,
+  reactToFamily,
 } from "./db/families";
 import { families } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
@@ -159,6 +160,64 @@ app.put("/:id", async (c) => {
     });
   } catch (error) {
     console.error("Error updating family:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Like a family (must come before /:id route)
+app.post("/:id/like", async (c) => {
+  const { id: familyId } = c.req.param();
+  const db = c.get("db");
+  const userId = c.get("userId");
+
+  if (!userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  try {
+    const reaction = await reactToFamily(db, familyId, userId, "like");
+
+    const family = await getFamilyById(db, familyId);
+
+    return c.json({
+      data: family,
+      reaction,
+      message: reaction === "like" ? "Family liked" : reaction === "dislike" ? "Reaction changed to dislike" : "Like removed",
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "Family not found") {
+      return c.json({ error: "Family not found" }, 404);
+    }
+    console.error("Error liking family:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Dislike a family (must come before /:id route)
+app.post("/:id/dislike", async (c) => {
+  const { id: familyId } = c.req.param();
+  const db = c.get("db");
+  const userId = c.get("userId");
+
+  if (!userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  try {
+    const reaction = await reactToFamily(db, familyId, userId, "dislike");
+
+    const family = await getFamilyById(db, familyId);
+
+    return c.json({
+      data: family,
+      reaction,
+      message: reaction === "dislike" ? "Family disliked" : reaction === "like" ? "Reaction changed to like" : "Dislike removed",
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "Family not found") {
+      return c.json({ error: "Family not found" }, 404);
+    }
+    console.error("Error disliking family:", error);
     return c.json({ error: "Internal server error" }, 500);
   }
 });

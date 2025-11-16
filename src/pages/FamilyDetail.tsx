@@ -22,7 +22,8 @@ import {
   Upload,
 } from "lucide-react";
 import { useState, useRef } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useToast } from "@/hooks/use-toast";
 
 interface FamilyType {
   id: string;
@@ -67,6 +68,8 @@ export default function FamilyDetail() {
   const [uploading, setUploading] = useState(false);
   const [previewImage, setPreviewImage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: familyData, isLoading } = useQuery({
     queryKey: ["family", id],
@@ -74,6 +77,70 @@ export default function FamilyDetail() {
   });
 
   const family: FamilyDetail | undefined = familyData?.data;
+
+  const likeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/family/${id}/like`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to like family");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["family", id] });
+      queryClient.invalidateQueries({ queryKey: ["families"] });
+      setThumbsUp(data.reaction === "like");
+      setThumbsDown(data.reaction === "dislike");
+      toast({
+        title: data.message || "Family liked",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const dislikeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/family/${id}/dislike`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to dislike family");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      queryClient.invalidateQueries({ queryKey: ["family", id] });
+      queryClient.invalidateQueries({ queryKey: ["families"] });
+      setThumbsUp(data.reaction === "like");
+      setThumbsDown(data.reaction === "dislike");
+      toast({
+        title: data.message || "Family disliked",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
 
   const handleNoPreviewClick = () => {
     setShowUploadDialog(true);
@@ -240,10 +307,8 @@ export default function FamilyDetail() {
           size="icon"
           variant="ghost"
           className="rounded-full w-12 h-12"
-          onClick={() => {
-            setThumbsUp(!thumbsUp);
-            if (thumbsDown) setThumbsDown(false);
-          }}
+          onClick={() => likeMutation.mutate()}
+          disabled={likeMutation.isPending || dislikeMutation.isPending}
         >
           <ThumbsUp
             className={`w-6 h-6 ${thumbsUp ? "fill-primary text-primary" : ""}`}
@@ -253,10 +318,8 @@ export default function FamilyDetail() {
           size="icon"
           variant="ghost"
           className="rounded-full w-12 h-12"
-          onClick={() => {
-            setThumbsDown(!thumbsDown);
-            if (thumbsUp) setThumbsUp(false);
-          }}
+          onClick={() => dislikeMutation.mutate()}
+          disabled={likeMutation.isPending || dislikeMutation.isPending}
         >
           <ThumbsDown
             className={`w-6 h-6 ${

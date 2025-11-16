@@ -6,6 +6,7 @@ import {
   addFamilyToPlaylist,
   updatePlaylistPreviewImage,
   likePlaylist,
+  reactToPlaylist,
   getPlaylistFamilies,
   getAllPlaylistsWithDetails,
 } from "./db/playlists";
@@ -180,32 +181,60 @@ app.put("/:id/preview-image", async (c) => {
   }
 });
 
-// Like/unlike a playlist (must come before /:id route)
+// Like a playlist (must come before /:id route)
 app.post("/:id/like", async (c) => {
   const { id: playlistId } = c.req.param();
   const db = c.get("db");
+  const userId = c.get("userId");
+
+  if (!userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
 
   try {
-    const body = await c.req.json();
-
-    if (!body.userId) {
-      return c.json({ error: "Missing required field: userId" }, 400);
-    }
-
-    const liked = await likePlaylist(db, playlistId, body.userId);
+    const reaction = await reactToPlaylist(db, playlistId, userId, "like");
 
     const playlist = await getPlaylistById(db, playlistId);
 
     return c.json({
       data: playlist,
-      liked,
-      message: liked ? "Playlist liked" : "Playlist unliked",
+      reaction,
+      message: reaction === "like" ? "Playlist liked" : reaction === "dislike" ? "Reaction changed to dislike" : "Like removed",
     });
   } catch (error) {
     if (error instanceof Error && error.message === "Playlist not found") {
       return c.json({ error: "Playlist not found" }, 404);
     }
     console.error("Error liking playlist:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Dislike a playlist (must come before /:id route)
+app.post("/:id/dislike", async (c) => {
+  const { id: playlistId } = c.req.param();
+  const db = c.get("db");
+  const userId = c.get("userId");
+
+  if (!userId) {
+    return c.json({ error: "Unauthorized" }, 401);
+  }
+
+  try {
+    const reaction = await reactToPlaylist(db, playlistId, userId, "dislike");
+
+    const playlist = await getPlaylistById(db, playlistId);
+
+    return c.json({
+      data: playlist,
+      reaction,
+      message: reaction === "dislike" ? "Playlist disliked" : reaction === "like" ? "Reaction changed to like" : "Dislike removed",
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "Playlist not found") {
+      return c.json({ error: "Playlist not found" }, 404);
+    }
+    console.error("Error disliking playlist:", error);
     return c.json({ error: "Internal server error" }, 500);
   }
 });

@@ -69,9 +69,6 @@ export default function PlaylistDetail() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // TODO: Get userId from auth context
-  const userId = "user-1"; // Placeholder - replace with actual auth
-
   const { data: playlistData, isLoading: isLoadingPlaylist } = useQuery({
     queryKey: ["playlist", id],
     queryFn: () => fetch(`/api/playlist/${id}`).then((res) => res.json()),
@@ -125,16 +122,59 @@ export default function PlaylistDetail() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ userId }),
       });
-      if (!response.ok) throw new Error("Failed to like playlist");
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to like playlist");
+      }
       return response.json();
     },
     onSuccess: (data) => {
-      setIsLiked(data.liked);
+      setIsLiked(data.reaction === "like");
       queryClient.invalidateQueries({ queryKey: ["playlist", id] });
+      queryClient.invalidateQueries({ queryKey: ["made-for-you"] });
+      queryClient.invalidateQueries({ queryKey: ["recently-used"] });
       toast({
-        title: data.liked ? "Playlist liked" : "Playlist unliked",
+        title: data.message || (data.reaction === "like" ? "Playlist liked" : "Playlist unliked"),
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  const dislikeMutation = useMutation({
+    mutationFn: async () => {
+      const response = await fetch(`/api/playlist/${id}/dislike`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+      });
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to dislike playlist");
+      }
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setIsLiked(false);
+      queryClient.invalidateQueries({ queryKey: ["playlist", id] });
+      queryClient.invalidateQueries({ queryKey: ["made-for-you"] });
+      queryClient.invalidateQueries({ queryKey: ["recently-used"] });
+      toast({
+        title: data.message || "Playlist disliked",
+      });
+    },
+    onError: (error: Error) => {
+      toast({
+        title: "Error",
+        description: error.message,
+        variant: "destructive",
       });
     },
   });
