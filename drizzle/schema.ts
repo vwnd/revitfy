@@ -75,11 +75,14 @@ export const families = pgTable("families", {
 	id: text().primaryKey().notNull(),
 	name: text().notNull(),
 	category: text().notNull(),
+	userId: text("user_id").notNull(),
 	previewImageStorageKey: text("preview_image_storage_key"),
+	rfaFileStorageKey: text("rfa_file_storage_key"),
 	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
 	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
 }, (table) => [
 	index("families_category_idx").on(table.category),
+	index("families_user_id_idx").on(table.userId),
 ]);
 
 export const familyUsage = pgTable("family_usage", {

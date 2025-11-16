@@ -6,8 +6,9 @@ import {
   addFamilyToPlaylist,
   updatePlaylistPreviewImage,
   likePlaylist,
+  getPlaylistFamilies,
 } from "./db/playlists";
-import { playlists } from "../drizzle/schema";
+import { playlists, user } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
 
 const app = new Hono<Context>();
@@ -34,6 +35,41 @@ app.post("/", async (c) => {
 
     if (existing) {
       return c.json({ error: "Playlist with this ID already exists" }, 409);
+    }
+
+    // Check if user exists, if not create a default user
+    let dbUser = await db.query.user.findFirst({
+      where: eq(user.id, body.userId),
+    });
+
+    if (!dbUser) {
+      try {
+        // Create a default user if it doesn't exist
+        const [newUser] = await db
+          .insert(user)
+          .values({
+            id: body.userId,
+            name: "Default User",
+            email: `${body.userId}@example.com`,
+            emailVerified: false,
+          })
+          .returning();
+        dbUser = newUser;
+      } catch (error) {
+        // If user creation fails (e.g., email already exists), try to find by email
+        dbUser = await db.query.user.findFirst({
+          where: eq(user.email, `${body.userId}@example.com`),
+        });
+        
+        // If still not found, return error
+        if (!dbUser) {
+          console.error("Error creating user:", error);
+          return c.json(
+            { error: "Failed to create or find user" },
+            500
+          );
+        }
+      }
     }
 
     const playlist = await createPlaylist(db, {
@@ -169,8 +205,17 @@ app.get("/:id", async (c) => {
       return c.json({ error: "Playlist not found" }, 404);
     }
 
+    // Get families in the playlist
+    const families = await getPlaylistFamilies(db, id);
+
     return c.json({
-      data: playlist,
+      data: {
+        ...playlist,
+        families: families.map((item) => ({
+          ...item.family,
+          order: item.order,
+        })),
+      },
     });
   } catch (error) {
     console.error("Error fetching playlist:", error);

@@ -9,8 +9,11 @@ import Home from "./pages/Home";
 import Search from "./pages/Search";
 import Library from "./pages/Library";
 import FamilyDetail from "./pages/FamilyDetail";
+import PlaylistDetail from "./pages/PlaylistDetail";
 import NotFound from "./pages/NotFound";
 import SignIn from "./pages/SignIn";
+import SignUp from "./pages/SignUp";
+import { ProtectedRoute } from "./components/ProtectedRoute";
 
 const queryClient = new QueryClient();
 
@@ -22,11 +25,50 @@ const AppContent = () => {
     <div className="flex min-h-screen w-full">
       {!isAuthPage && <Sidebar />}
       <Routes>
-        <Route path="/" element={<Home />} />
-        <Route path="/search" element={<Search />} />
-        <Route path="/library" element={<Library />} />
-        <Route path="/family/:id" element={<FamilyDetail />} />
+        {/* Protected routes */}
+        <Route
+          path="/"
+          element={
+            <ProtectedRoute>
+              <Home />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/search"
+          element={
+            <ProtectedRoute>
+              <Search />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/library"
+          element={
+            <ProtectedRoute>
+              <Library />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/family/:id"
+          element={
+            <ProtectedRoute>
+              <FamilyDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/playlist/:id"
+          element={
+            <ProtectedRoute>
+              <PlaylistDetail />
+            </ProtectedRoute>
+          }
+        />
+        {/* Public auth routes */}
         <Route path="/auth/sign-in" element={<SignIn />} />
+        <Route path="/auth/sign-up" element={<SignUp />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
       </Routes>

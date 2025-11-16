@@ -1,8 +1,9 @@
 import { AwsClient } from 'aws4fetch'
 import { Hono } from 'hono'
 import { getDb } from './db'
-import familyRoutes, { updateFamilyPreviewImage } from './family'
+import familyRoutes from './family'
 import playlistRoutes from './playlist'
+import { auth } from './auth'
 
 export interface Context {
   Bindings: {
@@ -19,6 +20,8 @@ export interface Context {
 
 const app = new Hono<Context>()
 
+app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+
 // Database helper middleware
 app.use('*', async (c, next) => {
   c.set('db', getDb(c.env))
@@ -27,119 +30,46 @@ app.use('*', async (c, next) => {
 
 app.get('/api/', (c) => c.json({ name: 'Hono!' }))
 
-app.get('/api/made-for-you', (c) => {
-  const data = [
-    {
-      id: "1",
-      name: "Structural Column - Wide Flange",
-      category: "Structural Columns",
-      usageCount: 1250,
-    },
-    {
-      id: "2",
-      name: "Office Desk - Rectangular",
-      category: "Furniture",
-      usageCount: 843,
-    },
-    {
-      id: "3",
-      name: "VAV Box - Standard",
-      category: "Mechanical Equipment",
-      usageCount: 567,
-    },
-    {
-      id: "4",
-      name: "Door - Single Swing",
-      category: "Doors",
-      usageCount: 2134,
-    },
-    {
-      id: "5",
-      name: "Window - Fixed",
-      category: "Windows",
-      usageCount: 1876,
-    },
-    {
-      id: "6",
-      name: "Electrical Panel - 480V",
-      category: "Electrical Equipment",
-      usageCount: 234,
-    },
-    {
-      id: "7",
-      name: "Toilet - Wall Mounted",
-      category: "Plumbing Fixtures",
-      usageCount: 456,
-    },
-    {
-      id: "8",
-      name: "LED Fixture - Recessed",
-      category: "Lighting",
-      usageCount: 3421,
-    },
-  ];
+app.get('/api/made-for-you', async (c) => {
+  const db = c.get("db");
+  
+  try {
+    const { getAllPlaylistsWithDetails } = await import("./db/playlists");
+    const playlists = await getAllPlaylistsWithDetails(db);
+    
+    // Sort by likes count (most liked first) and take top 5
+    const sortedPlaylists = playlists
+      .sort((a, b) => b.likesCount - a.likesCount)
+      .slice(0, 5);
 
-
-  return c.json({
-    data: data.slice(0, 5)
-  })
+    return c.json({
+      data: sortedPlaylists
+    });
+  } catch (error) {
+    console.error("Error fetching made-for-you playlists:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
 })
 
-app.get('/api/recently-used', (c) => {
-  const data = [
-    {
-      id: "1",
-      name: "Structural Column - Wide Flange",
-      category: "Structural Columns",
-      usageCount: 1250,
-    },
-    {
-      id: "2",
-      name: "Office Desk - Rectangular",
-      category: "Furniture",
-      usageCount: 843,
-    },
-    {
-      id: "3",
-      name: "VAV Box - Standard",
-      category: "Mechanical Equipment",
-      usageCount: 567,
-    },
-    {
-      id: "4",
-      name: "Door - Single Swing",
-      category: "Doors",
-      usageCount: 2134,
-    },
-    {
-      id: "5",
-      name: "Window - Fixed",
-      category: "Windows",
-      usageCount: 1876,
-    },
-    {
-      id: "6",
-      name: "Electrical Panel - 480V",
-      category: "Electrical Equipment",
-      usageCount: 234,
-    },
-    {
-      id: "7",
-      name: "Toilet - Wall Mounted",
-      category: "Plumbing Fixtures",
-      usageCount: 456,
-    },
-    {
-      id: "8",
-      name: "LED Fixture - Recessed",
-      category: "Lighting",
-      usageCount: 3421,
-    },
-  ]
+app.get('/api/recently-used', async (c) => {
+  const db = c.get("db");
+  
+  try {
+    const { getAllPlaylistsWithDetails } = await import("./db/playlists");
+    const playlists = await getAllPlaylistsWithDetails(db);
+    
+    // Sort by creation date (most recent first) and take top 5
+    const sortedPlaylists = playlists
+      .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+      .slice(0, 5);
 
-  return c.json({
-    data: data.slice(0, 5)
-  })
+    return c.json({
+      data: sortedPlaylists
+    });
+  } catch (error) {
+    console.error("Error fetching recently-used playlists:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
 })
 
 // Mount family routes
@@ -149,8 +79,7 @@ app.route('/api/family', familyRoutes)
 app.route('/api/playlist', playlistRoutes)
 
 app.post('/api/create-upload-url', async (c) => {
-  const { familyId, fileName, objectType, objectId } = await c.req.json()
-const db = c.get('db')
+  const { familyId, fileName } = await c.req.json()
   
   const client = new AwsClient({
     accessKeyId: c.env.R2_ACCESS_KEY_ID,
@@ -172,19 +101,9 @@ const db = c.get('db')
 
   const signed = await client.sign(new Request(url, {method: 'PUT'}), { aws: { signQuery: true }})
 
-  if (objectType === "family") {
-    try {
-      await updateFamilyPreviewImage(db, objectId, filePath)
-    } catch (error) {
-      if (error instanceof Error && error.message === 'Family not found') {
-        return c.json({ error: 'Family not found' }, 404)
-      }
-      throw error
-    }
-  }
-
   return c.json({
     uploadUrl: signed.url,
+    storageKey: filePath,
   })
 })
 

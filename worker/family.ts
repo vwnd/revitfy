@@ -52,9 +52,9 @@ app.post("/", async (c) => {
     const body = await c.req.json();
 
     // Validate required fields
-    if (!body.id || !body.name || !body.category) {
+    if (!body.id || !body.name || !body.category || !body.userId) {
       return c.json(
-        { error: "Missing required fields: id, name, category" },
+        { error: "Missing required fields: id, name, category, userId" },
         400
       );
     }
@@ -72,7 +72,9 @@ app.post("/", async (c) => {
       id: body.id,
       name: body.name,
       category: body.category,
+      userId: body.userId,
       previewImageStorageKey: body.previewImageStorageKey,
+      rfaFileStorageKey: body.rfaFileStorageKey,
     });
 
     return c.json(
@@ -113,6 +115,50 @@ app.put("/:id/preview-image", async (c) => {
       return c.json({ error: "Family not found" }, 404);
     }
     console.error("Error updating family preview image:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Update family (for updating storage keys)
+app.put("/:id", async (c) => {
+  const { id } = c.req.param();
+  const db = c.get("db");
+
+  try {
+    const body = await c.req.json();
+
+    // Check if family exists
+    const existing = await db.query.families.findFirst({
+      where: eq(families.id, id),
+    });
+
+    if (!existing) {
+      return c.json({ error: "Family not found" }, 404);
+    }
+
+    // Update only provided fields
+    const updateData: Partial<typeof families.$inferInsert> = {};
+    if (body.previewImageStorageKey !== undefined) {
+      updateData.previewImageStorageKey = body.previewImageStorageKey;
+    }
+    if (body.rfaFileStorageKey !== undefined) {
+      updateData.rfaFileStorageKey = body.rfaFileStorageKey;
+    }
+
+    await db
+      .update(families)
+      .set(updateData)
+      .where(eq(families.id, id));
+
+    const family = await db.query.families.findFirst({
+      where: eq(families.id, id),
+    });
+
+    return c.json({
+      data: family,
+    });
+  } catch (error) {
+    console.error("Error updating family:", error);
     return c.json({ error: "Internal server error" }, 500);
   }
 });

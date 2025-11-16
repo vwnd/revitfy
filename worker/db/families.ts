@@ -203,7 +203,7 @@ export async function getFamilyById(db: Db, familyId: string): Promise<FamilyDet
  */
 export async function createFamily(
   db: Db,
-  data: { id: string; name: string; category: string; previewImageStorageKey?: string }
+  data: { id: string; name: string; category: string; userId: string; previewImageStorageKey?: string; rfaFileStorageKey?: string }
 ): Promise<Family> {
   const [family] = await db
     .insert(families)
@@ -211,7 +211,9 @@ export async function createFamily(
       id: data.id,
       name: data.name,
       category: data.category,
+      userId: data.userId,
       previewImageStorageKey: data.previewImageStorageKey || null,
+      rfaFileStorageKey: data.rfaFileStorageKey || null,
     })
     .returning();
 

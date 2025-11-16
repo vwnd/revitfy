@@ -17,54 +17,55 @@ import { authClient } from "@/lib/auth-client";
 import { toast } from "sonner";
 import { Navigate } from "react-router-dom";
 
-const signInSchema = z.object({
+const signUpSchema = z.object({
+  name: z.string().min(2, "Name must be at least 2 characters"),
   email: z.string().email("Please enter a valid email address"),
   password: z.string().min(8, "Password must be at least 8 characters"),
+  confirmPassword: z.string().min(8, "Please confirm your password"),
+}).refine((data) => data.password === data.confirmPassword, {
+  message: "Passwords don't match",
+  path: ["confirmPassword"],
 });
 
-type SignInFormValues = z.infer<typeof signInSchema>;
+type SignUpFormValues = z.infer<typeof signUpSchema>;
 
-export default function SignIn() {
+export default function SignUp() {
   const navigate = useNavigate();
   const location = useLocation();
   const [isLoading, setIsLoading] = useState(false);
   const session = authClient.useSession();
-  const { signIn } = authClient;
+  const { signUp } = authClient;
 
-  const form = useForm<SignInFormValues>({
-    resolver: zodResolver(signInSchema),
+  const form = useForm<SignUpFormValues>({
+    resolver: zodResolver(signUpSchema),
     defaultValues: {
+      name: "",
       email: "",
       password: "",
+      confirmPassword: "",
     },
   });
 
   // Redirect to home if already authenticated (after hooks)
   if (session.data?.user) {
-    const from =
-      (location.state as { from?: { pathname?: string } })?.from?.pathname ||
-      "/";
-    return <Navigate to={from} replace />;
+    return <Navigate to="/" replace />;
   }
 
-  const onSubmit = async (data: SignInFormValues) => {
+  const onSubmit = async (data: SignUpFormValues) => {
     setIsLoading(true);
     try {
-      // TODO: Implement actual authentication logic
-      console.log("Sign in data:", data);
-      await signIn.email({
+      await signUp.email({
         email: data.email,
         password: data.password,
+        name: data.name,
       });
 
-      // Redirect to the page user was trying to access, or home
-      const from =
-        (location.state as { from?: { pathname?: string } })?.from?.pathname ||
-        "/";
-      navigate(from, { replace: true });
-    } catch (error) {
-      console.error("Sign in error:", error);
-      toast.error("Invalid email or password");
+      toast.success("Account created successfully!");
+      navigate("/");
+    } catch (error: any) {
+      console.error("Sign up error:", error);
+      const errorMessage = error?.message || "Failed to create account. Please try again.";
+      toast.error(errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -76,14 +77,33 @@ export default function SignIn() {
       <div className="flex w-full md:w-1/2 items-center justify-center p-4 md:p-8 lg:p-12">
         <div className="w-full max-w-md space-y-8">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">Sign in</h1>
+            <h1 className="text-3xl font-bold tracking-tight">Sign up</h1>
             <p className="mt-2 text-sm text-muted-foreground">
-              Enter your credentials to access your account
+              Create an account to get started
             </p>
           </div>
 
           <Form {...form}>
             <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Name</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="text"
+                        placeholder="John Doe"
+                        {...field}
+                        disabled={isLoading}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
               <FormField
                 control={form.control}
                 name="email"
@@ -122,32 +142,27 @@ export default function SignIn() {
                 )}
               />
 
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <input
-                    id="remember-me"
-                    name="remember-me"
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                  />
-                  <label
-                    htmlFor="remember-me"
-                    className="ml-2 block text-sm text-muted-foreground"
-                  >
-                    Remember me
-                  </label>
-                </div>
-
-                <a
-                  href="#"
-                  className="text-sm font-medium text-primary hover:underline"
-                >
-                  Forgot password?
-                </a>
-              </div>
+              <FormField
+                control={form.control}
+                name="confirmPassword"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Confirm Password</FormLabel>
+                    <FormControl>
+                      <Input
+                        type="password"
+                        placeholder="Confirm your password"
+                        {...field}
+                        disabled={isLoading}
+                      />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <Button type="submit" className="w-full" disabled={isLoading}>
-                {isLoading ? "Signing in..." : "Sign in"}
+                {isLoading ? "Creating account..." : "Sign up"}
               </Button>
             </form>
           </Form>
@@ -198,12 +213,9 @@ export default function SignIn() {
           </div>
 
           <p className="text-center text-sm text-muted-foreground">
-            Don't have an account?{" "}
-            <Link
-              to="/auth/sign-up"
-              className="font-medium text-primary hover:underline"
-            >
-              Sign up
+            Already have an account?{" "}
+            <Link to="/auth/sign-in" className="font-medium text-primary hover:underline">
+              Sign in
             </Link>
           </p>
         </div>
@@ -231,15 +243,15 @@ export default function SignIn() {
                   strokeLinecap="round"
                   strokeLinejoin="round"
                   strokeWidth={2}
-                  d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"
+                  d="M18 9v3m0 0v3m0-3h3m-3 0h-3m-2-5a4 4 0 11-8 0 4 4 0 018 0zM3 20a6 6 0 0112 0v1H3v-1z"
                 />
               </svg>
             </div>
             <h2 className="text-3xl font-bold text-foreground">
-              Welcome to Revitfy
+              Join Revitfy
             </h2>
             <p className="text-lg text-muted-foreground">
-              Your gateway to managing and exploring Revit families with ease
+              Start managing and exploring Revit families with ease
             </p>
           </div>
         </div>
@@ -247,3 +259,4 @@ export default function SignIn() {
     </div>
   );
 }
+

@@ -241,3 +241,46 @@ export async function getPlaylistFamilies(
   return playlistFamilyRecords;
 }
 
+/**
+ * Get all playlists with details (for made-for-you and recently-used)
+ */
+export async function getAllPlaylistsWithDetails(
+  db: Db
+): Promise<PlaylistWithDetails[]> {
+  const allPlaylists = await db.query.playlists.findMany({
+    orderBy: desc(playlists.createdAt),
+  });
+
+  const playlistsWithDetails = await Promise.all(
+    allPlaylists.map(async (playlist) => {
+      // Get likes count
+      const [likesResult] = await db
+        .select({
+          count: count(),
+        })
+        .from(playlistReactions)
+        .where(eq(playlistReactions.playlistId, playlist.id));
+
+      const likesCount = Number(likesResult?.count || 0);
+
+      // Get families count
+      const [familiesResult] = await db
+        .select({
+          count: count(),
+        })
+        .from(playlistFamilies)
+        .where(eq(playlistFamilies.playlistId, playlist.id));
+
+      const familiesCount = Number(familiesResult?.count || 0);
+
+      return {
+        ...playlist,
+        likesCount,
+        familiesCount,
+      };
+    })
+  );
+
+  return playlistsWithDetails;
+}
+
