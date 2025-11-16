@@ -4,7 +4,8 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route, useLocation } from "react-router-dom";
 import { Sidebar } from "./components/Sidebar";
-import { SidebarProvider } from "./contexts/SidebarContext";
+import { SidebarProvider, useSidebar } from "./contexts/SidebarContext";
+import { cn } from "./lib/utils";
 import Home from "./pages/Home";
 import Search from "./pages/Search";
 import Library from "./pages/Library";
@@ -20,11 +21,18 @@ const queryClient = new QueryClient();
 const AppContent = () => {
   const location = useLocation();
   const isAuthPage = location.pathname.startsWith("/auth");
+  const { isCollapsed } = useSidebar();
 
   return (
-    <div className="flex min-h-screen w-full">
+    <div className="flex h-screen w-full overflow-hidden">
       {!isAuthPage && <Sidebar />}
-      <Routes>
+      <div 
+        className={cn(
+          "flex-1 overflow-auto h-full",
+          !isAuthPage && (isCollapsed ? "ml-16" : "ml-64")
+        )}
+      >
+        <Routes>
         {/* Protected routes */}
         <Route
           path="/"
@@ -71,7 +79,8 @@ const AppContent = () => {
         <Route path="/auth/sign-up" element={<SignUp />} />
         {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
         <Route path="*" element={<NotFound />} />
-      </Routes>
+        </Routes>
+      </div>
     </div>
   );
 };

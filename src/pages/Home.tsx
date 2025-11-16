@@ -1,11 +1,8 @@
 import { FilterBar } from "@/components/FilterBar";
 import { PlaylistCard } from "@/components/PlaylistCard";
 import { useQuery } from "@tanstack/react-query";
-import { useSidebar } from "@/contexts/SidebarContext";
-import { cn } from "@/lib/utils";
 
 export default function Home() {
-  const { isCollapsed } = useSidebar();
 
   const { data: madeForYou, isLoading: isLoadingMadeForYou } = useQuery({
     queryKey: ["made-for-you"],
@@ -18,7 +15,7 @@ export default function Home() {
   });
 
   return (
-    <div className={cn("min-h-screen transition-all duration-200 ease-in-out", isCollapsed ? "ml-16" : "ml-64")}>
+    <div className="w-full h-full">
       <div className="p-8">
         <FilterBar />
 

@@ -1,8 +1,6 @@
 import { Input } from "@/components/ui/input";
 import { Search as SearchIcon } from "lucide-react";
 import { FamilyCard } from "@/components/FamilyCard";
-import { useSidebar } from "@/contexts/SidebarContext";
-import { cn } from "@/lib/utils";
 
 const recentSearches = [
   "Structural columns",
@@ -27,10 +25,8 @@ const mockFamilies = [
 ];
 
 export default function Search() {
-  const { isCollapsed } = useSidebar();
-  
   return (
-    <div className={cn("min-h-screen transition-all duration-200 ease-in-out", isCollapsed ? "ml-16" : "ml-64")}>
+    <div className="w-full h-full">
       <div className="p-8">
         <div className="mb-8">
           <div className="relative max-w-2xl">

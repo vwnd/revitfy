@@ -1,6 +1,5 @@
 import { useParams, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { useSidebar } from "@/contexts/SidebarContext";
 import { cn } from "@/lib/utils";
 import {
   Dialog,
@@ -15,46 +14,57 @@ import {
   MoreVertical,
   Upload,
   Plus,
-  X,
+  Shuffle,
+  Download,
+  Save,
+  Search,
 } from "lucide-react";
-import { useState, useRef } from "react";
+import { useState, useRef, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { FamilyCard } from "@/components/FamilyCard";
 import { useToast } from "@/hooks/use-toast";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+  Command,
+  CommandInput,
+  CommandList,
+  CommandEmpty,
+  CommandGroup,
+  CommandItem,
+} from "@/components/ui/command";
 
 interface PlaylistDetail {
   id: string;
   name: string;
   description?: string;
   previewImageStorageKey?: string;
+  userId: string;
+  userName?: string;
   likesCount: number;
   familiesCount: number;
+  totalSizeMB?: number;
   families: Array<{
     id: string;
     name: string;
     category: string;
     previewImageStorageKey?: string;
     order: number;
+    likesCount?: number;
+    location?: string;
+    sizeMB?: number;
   }>;
 }
 
 export default function PlaylistDetail() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { isCollapsed } = useSidebar();
   const [isLiked, setIsLiked] = useState(false);
   const [showUploadDialog, setShowUploadDialog] = useState(false);
   const [showAddFamilyDialog, setShowAddFamilyDialog] = useState(false);
   const [uploading, setUploading] = useState(false);
-  const [previewImage, setPreviewImage] = useState<string | null>(null);
   const [selectedFamilyId, setSelectedFamilyId] = useState<string>("");
+  const [familySearchQuery, setFamilySearchQuery] = useState<string>("");
+  const [selectedFamily, setSelectedFamily] = useState<string | null>(null);
+  const [tableSearchQuery, setTableSearchQuery] = useState<string>("");
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
@@ -62,17 +72,51 @@ export default function PlaylistDetail() {
   // TODO: Get userId from auth context
   const userId = "user-1"; // Placeholder - replace with actual auth
 
-  const { data: playlistData, isLoading } = useQuery({
+  const { data: playlistData, isLoading: isLoadingPlaylist } = useQuery({
     queryKey: ["playlist", id],
     queryFn: () => fetch(`/api/playlist/${id}`).then((res) => res.json()),
   });
 
-  const { data: familiesData } = useQuery({
+  const { data: familiesData, isLoading: isLoadingFamilies } = useQuery({
     queryKey: ["families"],
     queryFn: () => fetch("/api/family").then((res) => res.json()),
   });
 
   const playlist: PlaylistDetail | undefined = playlistData?.data;
+
+  // Calculate total size if not provided
+  const totalSizeMB = playlist?.totalSizeMB || 
+    (playlist?.families?.reduce((sum, f) => sum + (f.sizeMB || 37), 0) || 0);
+
+  // Filter families for table display
+  const filteredFamilies = useMemo(() => {
+    if (!playlist?.families) return [];
+    if (!tableSearchQuery.trim()) return playlist.families;
+    
+    const query = tableSearchQuery.toLowerCase();
+    return playlist.families.filter((family) => 
+      family.name.toLowerCase().includes(query) ||
+      family.category.toLowerCase().includes(query)
+    );
+  }, [playlist?.families, tableSearchQuery]);
+
+  // Filter families based on search query and exclude already added families
+  const availableFamilies = useMemo(() => {
+    if (!familiesData?.data) return [];
+    
+    return familiesData.data.filter((family: any) => {
+      // Filter out families already in playlist
+      const notInPlaylist = !playlist?.families?.some((f) => f.id === family.id);
+      // Filter by search query
+      if (familySearchQuery.trim()) {
+        const query = familySearchQuery.toLowerCase();
+        const matchesName = family.name?.toLowerCase().includes(query);
+        const matchesCategory = family.category?.toLowerCase().includes(query);
+        return notInPlaylist && (matchesName || matchesCategory);
+      }
+      return notInPlaylist;
+    });
+  }, [familiesData?.data, playlist?.families, familySearchQuery]);
 
   const likeMutation = useMutation({
     mutationFn: async () => {
@@ -127,6 +171,9 @@ export default function PlaylistDetail() {
       });
     },
   });
+
+  // Centralized loading state - combine all loading states
+  const isLoading = isLoadingPlaylist || isLoadingFamilies || uploading || addFamilyMutation.isPending || likeMutation.isPending;
 
   const handleNoPreviewClick = () => {
     setShowUploadDialog(true);
@@ -194,12 +241,6 @@ export default function PlaylistDetail() {
         throw new Error("Failed to update playlist preview");
       }
 
-      const reader = new FileReader();
-      reader.onloadend = () => {
-        setPreviewImage(reader.result as string);
-      };
-      reader.readAsDataURL(file);
-
       queryClient.invalidateQueries({ queryKey: ["playlist", id] });
       setShowUploadDialog(false);
       toast({
@@ -232,149 +273,271 @@ export default function PlaylistDetail() {
     addFamilyMutation.mutate(selectedFamilyId);
   };
 
-  if (isLoading) {
+  // Show loading skeleton if playlist is still loading
+  if (isLoadingPlaylist) {
     return (
-      <div
-        className={cn(
-          "min-h-screen flex items-center justify-center transition-all duration-200 ease-in-out",
-          isCollapsed ? "ml-16" : "ml-64"
-        )}
-      >
-        <div className="text-muted-foreground">Loading...</div>
+      <div className="w-full h-full overflow-auto bg-gradient-to-b from-purple-900/20 via-background to-background">
+        {/* Hero Section Skeleton */}
+        <div className="p-8 pb-4">
+          <div className="mb-6 space-y-4">
+            <Skeleton className="h-16 w-96" />
+            <Skeleton className="h-4 w-64" />
+          </div>
+          <div className="flex gap-2 items-center">
+            <Skeleton className="h-14 w-32 rounded-full" />
+            <Skeleton className="h-12 w-12 rounded-full" />
+            <Skeleton className="h-12 w-12 rounded-full" />
+            <Skeleton className="h-12 w-12 rounded-full" />
+            <Skeleton className="h-12 w-12 rounded-full" />
+          </div>
+        </div>
+
+        {/* Table Skeleton */}
+        <div className="px-8 pb-8">
+          <div className="bg-background/30 rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border/50">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground w-12">#</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Family</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Location</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Size</th>
+                  <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground w-16"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="border-b border-border/30">
+                    <td className="py-3 px-4">
+                      <Skeleton className="h-4 w-4" />
+                    </td>
+                    <td className="py-3 px-4">
+                      <div className="flex items-center gap-3">
+                        <Skeleton className="w-10 h-10 rounded" />
+                        <div className="space-y-2">
+                          <Skeleton className="h-4 w-32" />
+                          <Skeleton className="h-3 w-16" />
+                        </div>
+                      </div>
+                    </td>
+                    <td className="py-3 px-4">
+                      <Skeleton className="h-4 w-20" />
+                    </td>
+                    <td className="py-3 px-4">
+                      <Skeleton className="h-4 w-16" />
+                    </td>
+                    <td className="py-3 px-4 text-right">
+                      <Skeleton className="h-8 w-8 rounded-full ml-auto" />
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
       </div>
     );
   }
 
   if (!playlist) {
     return (
-      <div
-        className={cn(
-          "min-h-screen mx-auto w-full flex items-center justify-center transition-all duration-200 ease-in-out",
-          isCollapsed ? "ml-16" : "ml-64"
-        )}
-      >
+      <div className="w-full h-full flex items-center justify-center">
         <div className="text-muted-foreground">Playlist not found</div>
       </div>
     );
   }
 
-  const previewImageUrl = playlist.previewImageStorageKey
-    ? `/api/storage/${playlist.previewImageStorageKey}`
-    : null;
-
   // Set initial liked state based on playlist data
   // TODO: Check if current user has liked this playlist
 
   return (
-    <div
-      className={cn(
-        "min-h-screen transition-all duration-200 ease-in-out",
-        isCollapsed ? "ml-16" : "ml-64"
-      )}
-    >
+    <div className="w-full h-full overflow-auto bg-gradient-to-b from-purple-900/20 via-background to-background">
       {/* Hero Section */}
-      <div className="bg-gradient-to-b from-secondary to-background p-8">
-        <div className="flex gap-8 items-end">
-          {/* Preview Image */}
-          <div
-            className="w-64 h-64 bg-card rounded-lg shadow-2xl flex items-center justify-center cursor-pointer hover:bg-secondary transition-colors relative overflow-hidden"
-            onClick={handleNoPreviewClick}
-          >
-            {previewImage || previewImageUrl ? (
-              <img
-                src={previewImage || previewImageUrl || ""}
-                alt={playlist.name}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="text-center space-y-2">
-                <div className="text-6xl">🎵</div>
-                <div className="text-muted-foreground">No Preview</div>
-                <div className="text-xs text-muted-foreground">
-                  Click to upload
-                </div>
-              </div>
-            )}
+      <div className="p-8 pb-4">
+        {/* Playlist Info */}
+        <div className="mb-6">
+          <h1 className="text-6xl font-bold mb-4 text-white">{playlist.name}</h1>
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+            <span>By {playlist.userName || "Unknown User"}</span>
+            <span>•</span>
+            <span>{playlist.likesCount} {playlist.likesCount === 1 ? "like" : "likes"}</span>
+            <span>•</span>
+            <span>{playlist.familiesCount} {playlist.familiesCount === 1 ? "family" : "families"}</span>
+            <span>•</span>
+            <span>{Math.round(totalSizeMB)} MB</span>
           </div>
+        </div>
 
-          {/* Playlist Info */}
-          <div className="flex-1 pb-4">
-            <p className="text-sm font-semibold uppercase tracking-wider mb-2">
-              Playlist
-            </p>
-            <h1 className="text-5xl font-bold mb-4">{playlist.name}</h1>
-            {playlist.description && (
-              <p className="text-muted-foreground mb-4">
-                {playlist.description}
-              </p>
-            )}
-            <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">
-                {playlist.familiesCount}{" "}
-                {playlist.familiesCount === 1 ? "family" : "families"}
-              </span>
-              <span className="text-muted-foreground">•</span>
-              <span className="text-muted-foreground">
-                {playlist.likesCount} {playlist.likesCount === 1 ? "like" : "likes"}
-              </span>
-            </div>
-          </div>
+        {/* Actions */}
+        <div className="flex gap-2 items-center">
+          <Button 
+            size="lg" 
+            className="rounded-full px-8 gap-2 bg-green-500 hover:bg-green-600 text-white h-14"
+            disabled={isLoading}
+          >
+            <Play className="w-6 h-6 fill-current" />
+            Play
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="rounded-full w-12 h-12 hover:bg-white/10"
+            disabled={isLoading}
+          >
+            <Shuffle className="w-6 h-6" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="rounded-full w-12 h-12 hover:bg-white/10"
+            onClick={() => setShowAddFamilyDialog(true)}
+            disabled={isLoading}
+          >
+            <Plus className="w-6 h-6" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="rounded-full w-12 h-12 hover:bg-white/10"
+            disabled={isLoading}
+          >
+            <Save className="w-6 h-6" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="rounded-full w-12 h-12 hover:bg-white/10"
+            disabled={isLoading}
+          >
+            <Download className="w-6 h-6" />
+          </Button>
+          <Button
+            size="icon"
+            variant="ghost"
+            className="rounded-full w-12 h-12 hover:bg-white/10"
+            onClick={() => setShowUploadDialog(true)}
+            disabled={isLoading}
+          >
+            <Upload className="w-6 h-6" />
+          </Button>
+          <Button 
+            size="icon" 
+            variant="ghost" 
+            className="rounded-full w-12 h-12 hover:bg-white/10"
+            disabled={isLoading}
+          >
+            <MoreVertical className="w-6 h-6" />
+          </Button>
         </div>
       </div>
 
-      {/* Actions */}
-      <div className="p-8 flex gap-4 items-center">
-        <Button size="lg" className="rounded-full px-8 gap-2">
-          <Play className="w-5 h-5 fill-current" />
-          Play All
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          className={`rounded-full w-12 h-12 ${
-            isLiked ? "text-primary" : ""
-          }`}
-          onClick={() => likeMutation.mutate()}
-        >
-          <Heart
-            className={`w-6 h-6 ${isLiked ? "fill-primary text-primary" : ""}`}
-          />
-        </Button>
-        <Button
-          size="icon"
-          variant="ghost"
-          className="rounded-full w-12 h-12"
-          onClick={() => setShowAddFamilyDialog(true)}
-        >
-          <Plus className="w-6 h-6" />
-        </Button>
-        <Button size="icon" variant="ghost" className="rounded-full w-12 h-12">
-          <MoreVertical className="w-6 h-6" />
-        </Button>
-      </div>
-
-      {/* Families List */}
-      <div className="p-8">
-        <h2 className="text-2xl font-bold mb-6">Families</h2>
-        {playlist.families.length === 0 ? (
+      {/* Families Table */}
+      <div className="px-8 pb-8">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex-1"></div>
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              type="text"
+              placeholder="Search in playlist..."
+              value={tableSearchQuery}
+              onChange={(e) => setTableSearchQuery(e.target.value)}
+              className="pl-10 pr-4 py-2 bg-background/50 border border-border rounded-md text-sm focus:outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+        </div>
+        
+        {filteredFamilies.length === 0 ? (
           <div className="text-center py-12 text-muted-foreground">
-            <p className="mb-4">No families in this playlist yet.</p>
-            <Button onClick={() => setShowAddFamilyDialog(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              Add Family
-            </Button>
+            <p className="mb-4">
+              {tableSearchQuery ? "No families match your search." : "No families in this playlist yet."}
+            </p>
+            {!tableSearchQuery && (
+              <Button onClick={() => setShowAddFamilyDialog(true)}>
+                <Plus className="w-4 h-4 mr-2" />
+                Add Family
+              </Button>
+            )}
           </div>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            {playlist.families.map((family) => (
-              <FamilyCard
-                key={family.id}
-                id={family.id}
-                name={family.name}
-                category={family.category}
-                usageCount={0}
-              />
-            ))}
+          <div className="bg-background/30 rounded-lg overflow-hidden">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border/50">
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground w-12">#</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Family</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Location</th>
+                  <th className="text-left py-3 px-4 text-sm font-medium text-muted-foreground">Size</th>
+                  <th className="text-right py-3 px-4 text-sm font-medium text-muted-foreground w-16"></th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredFamilies.map((family, index) => {
+                  const previewImageUrl = family.previewImageStorageKey
+                    ? `/api/storage/${family.previewImageStorageKey}`
+                    : null;
+                  const isSelected = selectedFamily === family.id;
+                  
+                  return (
+                    <tr
+                      key={family.id}
+                      className={cn(
+                        "border-b border-border/30 hover:bg-white/5 transition-colors cursor-pointer",
+                        isSelected && "bg-white/10"
+                      )}
+                      onClick={() => {
+                        setSelectedFamily(family.id);
+                        navigate(`/family/${family.id}`);
+                      }}
+                    >
+                      <td className="py-3 px-4 text-sm text-muted-foreground">
+                        {index + 1}
+                      </td>
+                      <td className="py-3 px-4">
+                        <div className="flex items-center gap-3">
+                          <div className="w-10 h-10 rounded bg-primary/10 flex items-center justify-center overflow-hidden flex-shrink-0">
+                            {previewImageUrl ? (
+                              <img
+                                src={previewImageUrl}
+                                alt={family.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="text-lg">📦</div>
+                            )}
+                          </div>
+                          <div className="flex flex-col min-w-0">
+                            <span className="font-medium text-sm truncate">{family.name}</span>
+                            <span className="text-xs text-muted-foreground">
+                              {family.likesCount || 0} likes
+                            </span>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="py-3 px-4 text-sm text-muted-foreground">
+                        {family.location || "New York"}
+                      </td>
+                      <td className="py-3 px-4 text-sm text-muted-foreground">
+                        {family.sizeMB || 37} MB
+                      </td>
+                      <td className="py-3 px-4 text-right">
+                        <Button
+                          size="icon"
+                          variant="ghost"
+                          className="w-8 h-8 rounded-full hover:bg-white/10"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Handle like action
+                          }}
+                        >
+                          <Heart className="w-4 h-4" />
+                        </Button>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
           </div>
         )}
       </div>
@@ -403,7 +566,7 @@ export default function PlaylistDetail() {
                 type="button"
                 variant="outline"
                 className="w-full"
-                disabled={uploading}
+                disabled={isLoading}
                 onClick={() => fileInputRef.current?.click()}
               >
                 <Upload className="w-4 h-4 mr-2" />
@@ -420,40 +583,100 @@ export default function PlaylistDetail() {
       </Dialog>
 
       {/* Add Family Dialog */}
-      <Dialog open={showAddFamilyDialog} onOpenChange={setShowAddFamilyDialog}>
-        <DialogContent>
+      <Dialog 
+        open={showAddFamilyDialog} 
+        onOpenChange={(open) => {
+          setShowAddFamilyDialog(open);
+          if (!open) {
+            setSelectedFamilyId("");
+            setFamilySearchQuery("");
+          }
+        }}
+      >
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle>Add Family to Playlist</DialogTitle>
             <DialogDescription>
-              Select a family to add to this playlist.
+              Search and select a family to add to this playlist.
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-4">
-            <Select value={selectedFamilyId} onValueChange={setSelectedFamilyId}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a family" />
-              </SelectTrigger>
-              <SelectContent>
-                {familiesData?.data
-                  ?.filter(
-                    (family: any) =>
-                      !playlist.families.some((f) => f.id === family.id)
-                  )
-                  .map((family: any) => (
-                    <SelectItem key={family.id} value={family.id}>
-                      {family.name} ({family.category})
-                    </SelectItem>
-                  ))}
-              </SelectContent>
-            </Select>
-            {(!familiesData?.data ||
-              familiesData.data.filter(
-                (family: any) =>
-                  !playlist.families.some((f) => f.id === family.id)
-              ).length === 0) && (
-              <p className="text-sm text-muted-foreground">
-                All available families are already in this playlist.
-              </p>
+            <Command className="rounded-lg border" shouldFilter={false}>
+              <CommandInput
+                placeholder="Search families by name or category..."
+                value={familySearchQuery}
+                onValueChange={setFamilySearchQuery}
+                disabled={isLoading}
+              />
+              <CommandList className="max-h-[400px]">
+                <CommandEmpty>
+                  {isLoadingFamilies ? (
+                    "Loading families..."
+                  ) : availableFamilies.length === 0 && familiesData?.data?.length > 0 ? (
+                    "All available families are already in this playlist."
+                  ) : (
+                    "No families found. Try a different search term."
+                  )}
+                </CommandEmpty>
+                <CommandGroup>
+                  {availableFamilies.length > 0 && availableFamilies.map((family: any) => {
+                    const previewImageUrl = family.previewImageStorageKey
+                      ? `/api/storage/${family.previewImageStorageKey}`
+                      : null;
+                    
+                    return (
+                      <CommandItem
+                        key={family.id}
+                        value={family.id}
+                        onSelect={() => {
+                          setSelectedFamilyId(family.id);
+                        }}
+                        className="cursor-pointer py-3 px-3 rounded-md aria-selected:bg-accent aria-selected:text-accent-foreground"
+                      >
+                        <div className="flex items-center gap-3 flex-1 w-full">
+                          {/* Preview Image */}
+                          <div className="w-12 h-12 rounded-md bg-primary/10 flex-shrink-0 overflow-hidden flex items-center justify-center">
+                            {previewImageUrl ? (
+                              <img
+                                src={previewImageUrl}
+                                alt={family.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : (
+                              <div className="text-lg">📦</div>
+                            )}
+                          </div>
+                          
+                          {/* Family Info */}
+                          <div className="flex flex-col flex-1 min-w-0">
+                            <span className="font-medium text-base truncate">
+                              {family.name}
+                            </span>
+                            <span className="text-sm text-muted-foreground">
+                              {family.category}
+                            </span>
+                          </div>
+                          
+                          {/* Selection Indicator */}
+                          {selectedFamilyId === family.id && (
+                            <div className="flex-shrink-0 w-5 h-5 rounded-full bg-primary flex items-center justify-center">
+                              <span className="text-primary-foreground text-xs">✓</span>
+                            </div>
+                          )}
+                        </div>
+                      </CommandItem>
+                    );
+                  })}
+                </CommandGroup>
+              </CommandList>
+            </Command>
+            {selectedFamilyId && (
+              <div className="text-sm text-muted-foreground">
+                Selected:{" "}
+                <span className="font-medium">
+                  {availableFamilies.find((f: any) => f.id === selectedFamilyId)?.name}
+                </span>
+              </div>
             )}
           </div>
           <div className="flex justify-end gap-2">
@@ -462,13 +685,14 @@ export default function PlaylistDetail() {
               onClick={() => {
                 setShowAddFamilyDialog(false);
                 setSelectedFamilyId("");
+                setFamilySearchQuery("");
               }}
             >
               Cancel
             </Button>
             <Button
               onClick={handleAddFamily}
-              disabled={!selectedFamilyId || addFamilyMutation.isPending}
+              disabled={!selectedFamilyId || isLoading}
             >
               {addFamilyMutation.isPending ? "Adding..." : "Add Family"}
             </Button>
