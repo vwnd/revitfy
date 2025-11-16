@@ -107,4 +107,72 @@ app.post('/api/create-upload-url', async (c) => {
   })
 })
 
+// Serve images from R2 storage
+app.get('/api/storage/*', async (c) => {
+  try {
+    // Get the full path after /api/storage/
+    // Try multiple methods to get the path
+    let storageKey: string | undefined;
+    
+    // Method 1: Try using req.param with wildcard
+    const wildcardParam = c.req.param('*');
+    if (wildcardParam) {
+      storageKey = decodeURIComponent(wildcardParam);
+    } else {
+      // Method 2: Extract from path
+      const url = new URL(c.req.url);
+      const pathMatch = url.pathname.match(/^\/api\/storage\/(.+)$/);
+      if (pathMatch && pathMatch[1]) {
+        storageKey = decodeURIComponent(pathMatch[1]);
+      }
+    }
+    
+    if (!storageKey || storageKey === '') {
+      console.error('Storage key missing. Path:', c.req.path, 'URL:', c.req.url);
+      return c.json({ error: 'Storage key is required' }, 400);
+    }
+
+    const client = new AwsClient({
+      accessKeyId: c.env.R2_ACCESS_KEY_ID,
+      secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
+    });
+
+    const bucketName = "revitfy-storage";
+    const accountId = c.env.CLOUDFLARE_ACCOUNT_ID;
+
+    const r2Url = new URL(
+      `https://${bucketName}.${accountId}.r2.cloudflarestorage.com`,
+    );
+    
+    r2Url.pathname = `/${storageKey}`;
+    r2Url.searchParams.set('X-Amz-Expires', '3600');
+
+    // Generate signed GET URL
+    const signed = await client.sign(new Request(r2Url, {method: 'GET'}), { aws: { signQuery: true }});
+
+    // Fetch the image from R2 and proxy it
+    const imageResponse = await fetch(signed.url);
+    
+    if (!imageResponse.ok) {
+      console.error('R2 fetch failed:', imageResponse.status, imageResponse.statusText, 'for key:', storageKey);
+      return c.json({ error: 'Image not found' }, 404);
+    }
+
+    // Get the image data and content type
+    const imageData = await imageResponse.arrayBuffer();
+    const contentType = imageResponse.headers.get('content-type') || 'image/jpeg';
+
+    // Return the image with proper headers
+    return new Response(imageData, {
+      headers: {
+        'Content-Type': contentType,
+        'Cache-Control': 'public, max-age=3600',
+      },
+    });
+  } catch (error) {
+    console.error('Error in storage endpoint:', error);
+    return c.json({ error: 'Failed to fetch image', details: error instanceof Error ? error.message : 'Unknown error' }, 500);
+  }
+});
+
 export default app
