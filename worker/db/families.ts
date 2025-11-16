@@ -1,8 +1,9 @@
-import { eq, sql, desc, and, gte, count } from 'drizzle-orm';
+import { eq, sql, desc, and, gte, count, like, or } from 'drizzle-orm';
 import { families, familyUsage, familyReactions, projects } from '../../drizzle/schema';
-import type { InferSelectModel } from 'drizzle-orm';
+import type { InferSelectModel, InferInsertModel } from 'drizzle-orm';
 
 type Family = InferSelectModel<typeof families>;
+type FamilyInsert = InferInsertModel<typeof families>;
 type Db = ReturnType<typeof import('../db').getDb>;
 
 export interface FamilyDetailResult {
@@ -195,6 +196,92 @@ export async function getFamilyById(db: Db, familyId: string): Promise<FamilyDet
       },
     },
   };
+}
+
+/**
+ * Create a new family
+ */
+export async function createFamily(
+  db: Db,
+  data: { id: string; name: string; category: string; previewImageStorageKey?: string }
+): Promise<Family> {
+  const [family] = await db
+    .insert(families)
+    .values({
+      id: data.id,
+      name: data.name,
+      category: data.category,
+      previewImageStorageKey: data.previewImageStorageKey || null,
+    })
+    .returning();
+
+  return family;
+}
+
+/**
+ * List families with optional pagination and filtering
+ */
+export async function listFamilies(
+  db: Db,
+  options?: {
+    limit?: number;
+    offset?: number;
+    category?: string;
+    search?: string;
+  }
+): Promise<{ families: Family[]; total: number }> {
+  const limit = options?.limit || 50;
+  const offset = options?.offset || 0;
+
+  // Build where conditions
+  const conditions = [];
+  if (options?.category) {
+    conditions.push(eq(families.category, options.category));
+  }
+  if (options?.search) {
+    conditions.push(
+      or(
+        like(families.name, `%${options.search}%`),
+        like(families.category, `%${options.search}%`)
+      )!
+    );
+  }
+
+  const whereClause = conditions.length > 0 ? and(...conditions) : undefined;
+
+  // Get total count
+  const [totalResult] = await db
+    .select({ count: count() })
+    .from(families)
+    .where(whereClause);
+
+  const total = Number(totalResult?.count || 0);
+
+  // Get families
+  const familiesList = await db
+    .select()
+    .from(families)
+    .where(whereClause)
+    .orderBy(desc(families.createdAt))
+    .limit(limit)
+    .offset(offset);
+
+  return {
+    families: familiesList,
+    total,
+  };
+}
+
+/**
+ * Delete a family by ID
+ */
+export async function deleteFamily(db: Db, familyId: string): Promise<boolean> {
+  const [deleted] = await db
+    .delete(families)
+    .where(eq(families.id, familyId))
+    .returning();
+
+  return deleted !== undefined;
 }
 
 /**

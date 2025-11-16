@@ -128,3 +128,63 @@ export const familyReactions = pgTable("family_reactions", {
 	unique("family_reactions_family_user_unique").on(table.familyId, table.userId),
 	index("family_reactions_family_id_idx").on(table.familyId),
 ]);
+
+export const playlists = pgTable("playlists", {
+	id: text().primaryKey().notNull(),
+	name: text().notNull(),
+	description: text(),
+	previewImageStorageKey: text("preview_image_storage_key"),
+	userId: text("user_id").notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+		columns: [table.userId],
+		foreignColumns: [user.id],
+		name: "playlists_user_id_user_id_fk"
+	}).onDelete("cascade"),
+	index("playlists_user_id_idx").on(table.userId),
+]);
+
+export const playlistFamilies = pgTable("playlist_families", {
+	id: text().primaryKey().notNull(),
+	playlistId: text("playlist_id").notNull(),
+	familyId: text("family_id").notNull(),
+	order: integer().default(0).notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+		columns: [table.playlistId],
+		foreignColumns: [playlists.id],
+		name: "playlist_families_playlist_id_playlists_id_fk"
+	}).onDelete("cascade"),
+	foreignKey({
+		columns: [table.familyId],
+		foreignColumns: [families.id],
+		name: "playlist_families_family_id_families_id_fk"
+	}).onDelete("cascade"),
+	unique("playlist_families_playlist_family_unique").on(table.playlistId, table.familyId),
+	index("playlist_families_playlist_id_idx").on(table.playlistId),
+	index("playlist_families_family_id_idx").on(table.familyId),
+]);
+
+export const playlistReactions = pgTable("playlist_reactions", {
+	id: text().primaryKey().notNull(),
+	playlistId: text("playlist_id").notNull(),
+	userId: text("user_id").notNull(),
+	createdAt: timestamp("created_at", { mode: 'string' }).defaultNow().notNull(),
+	updatedAt: timestamp("updated_at", { mode: 'string' }).defaultNow().notNull(),
+}, (table) => [
+	foreignKey({
+		columns: [table.playlistId],
+		foreignColumns: [playlists.id],
+		name: "playlist_reactions_playlist_id_playlists_id_fk"
+	}).onDelete("cascade"),
+	foreignKey({
+		columns: [table.userId],
+		foreignColumns: [user.id],
+		name: "playlist_reactions_user_id_user_id_fk"
+	}).onDelete("cascade"),
+	unique("playlist_reactions_playlist_user_unique").on(table.playlistId, table.userId),
+	index("playlist_reactions_playlist_id_idx").on(table.playlistId),
+]);

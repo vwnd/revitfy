@@ -2,6 +2,7 @@ import { AwsClient } from 'aws4fetch'
 import { Hono } from 'hono'
 import { getDb } from './db'
 import familyRoutes, { updateFamilyPreviewImage } from './family'
+import playlistRoutes from './playlist'
 
 export interface Context {
   Bindings: {
@@ -143,6 +144,9 @@ app.get('/api/recently-used', (c) => {
 
 // Mount family routes
 app.route('/api/family', familyRoutes)
+
+// Mount playlist routes
+app.route('/api/playlist', playlistRoutes)
 
 app.post('/api/create-upload-url', async (c) => {
   const { familyId, fileName, objectType, objectId } = await c.req.json()
