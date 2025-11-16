@@ -2,15 +2,28 @@
  * For more details on how to configure Wrangler, refer to:
  * https://developers.cloudflare.com/workers/wrangler/configuration/
  */
-{
+ {
 	"$schema": "node_modules/wrangler/config-schema.json",
 	"name": "revitfy",
 	"compatibility_date": "2025-09-02",
 	"compatibility_flags": ["nodejs_compat"],
-	"main": "@tanstack/react-start/server-entry",
 	"observability": {
 		"enabled": true
+	},
+	"assets": {
+    	"not_found_handling": "single-page-application"
+  },
+  "routes": [
+	{
+		"custom_domain": true,
+		"pattern": "revitfy.com",
+	},
+	{
+		"pattern": "www.revitfy.com",
+		"custom_domain": true
 	}
+  ]
+
 	/**
 	 * Smart Placement
 	 * Docs: https://developers.cloudflare.com/workers/configuration/smart-placement/#smart-placement
