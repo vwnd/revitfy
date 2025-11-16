@@ -73,7 +73,11 @@ export default function FamilyDetail() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
 
-  const { data: familyData, isLoading, error } = useQuery({
+  const {
+    data: familyData,
+    isLoading,
+    error,
+  } = useQuery({
     queryKey: ["family", id],
     queryFn: async () => {
       const res = await fetch(`/api/family/${id}`);
@@ -229,7 +233,10 @@ export default function FamilyDetail() {
       console.error("Upload error:", error);
       toast({
         title: "Upload failed",
-        description: error instanceof Error ? error.message : "Failed to upload image. Please try again.",
+        description:
+          error instanceof Error
+            ? error.message
+            : "Failed to upload image. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -252,7 +259,10 @@ export default function FamilyDetail() {
   if (error) {
     return (
       <div className="w-full h-full flex items-center justify-center bg-background">
-        <div className="text-destructive">Error loading family: {error instanceof Error ? error.message : "Unknown error"}</div>
+        <div className="text-destructive">
+          Error loading family:{" "}
+          {error instanceof Error ? error.message : "Unknown error"}
+        </div>
       </div>
     );
   }
@@ -330,8 +340,8 @@ export default function FamilyDetail() {
 
       {/* Actions */}
       <div className="p-8 flex gap-4 items-center">
-        <Button 
-          size="lg" 
+        <Button
+          size="lg"
           className="rounded-full px-8 gap-2"
           onClick={async () => {
             if (!family?.rfaFileStorageKey) {
@@ -368,17 +378,23 @@ export default function FamilyDetail() {
               };
 
               // Copy to clipboard
-              await navigator.clipboard.writeText(JSON.stringify(jsonPayload, null, 2));
+              await navigator.clipboard.writeText(
+                JSON.stringify(jsonPayload, null, 2)
+              );
 
               toast({
                 title: "Copied to clipboard",
-                description: "Please paste the JSON into Revit to load the family",
+                description:
+                  "Please paste the JSON into Revit to load the family",
               });
             } catch (error) {
               console.error("Error copying to clipboard:", error);
               toast({
                 title: "Error",
-                description: error instanceof Error ? error.message : "Failed to copy to clipboard",
+                description:
+                  error instanceof Error
+                    ? error.message
+                    : "Failed to copy to clipboard",
                 variant: "destructive",
               });
             }
@@ -432,31 +448,31 @@ export default function FamilyDetail() {
           <h2 className="text-2xl font-bold mb-6">Family Types</h2>
           <div className="space-y-2">
             {family.types.map((type, index) => (
-            <div
-              key={type.id}
-              className="flex items-center gap-4 p-4 rounded-md hover:bg-secondary transition-colors group cursor-pointer"
-              onClick={() => setSelectedType(type)}
-            >
-              <div className="text-muted-foreground w-8">{index + 1}</div>
-              <div className="flex-1">
-                <div className="font-medium">{type.name}</div>
-              </div>
-              <div className="text-muted-foreground text-sm">
-                {type.usageCount} uses
-              </div>
-              <Button
-                size="icon"
-                variant="ghost"
-                className="opacity-0 group-hover:opacity-100 transition-opacity"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setSelectedType(type);
-                }}
+              <div
+                key={type.id}
+                className="flex items-center gap-4 p-4 rounded-md hover:bg-secondary transition-colors group cursor-pointer"
+                onClick={() => setSelectedType(type)}
               >
-                <Play className="w-4 h-4" />
-              </Button>
-            </div>
-          ))}
+                <div className="text-muted-foreground w-8">{index + 1}</div>
+                <div className="flex-1">
+                  <div className="font-medium">{type.name}</div>
+                </div>
+                <div className="text-muted-foreground text-sm">
+                  {type.usageCount} uses
+                </div>
+                <Button
+                  size="icon"
+                  variant="ghost"
+                  className="opacity-0 group-hover:opacity-100 transition-opacity"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setSelectedType(type);
+                  }}
+                >
+                  <Play className="w-4 h-4" />
+                </Button>
+              </div>
+            ))}
           </div>
         </div>
       )}
@@ -559,8 +575,8 @@ export default function FamilyDetail() {
 
             {/* Actions */}
             <div className="flex gap-3 pt-2">
-              <Button 
-                size="lg" 
+              <Button
+                size="lg"
                 className="flex-1"
                 onClick={async () => {
                   if (!family?.rfaFileStorageKey) {
@@ -597,17 +613,23 @@ export default function FamilyDetail() {
                     };
 
                     // Copy to clipboard
-                    await navigator.clipboard.writeText(JSON.stringify(jsonPayload, null, 2));
+                    await navigator.clipboard.writeText(
+                      JSON.stringify(jsonPayload, null, 2)
+                    );
 
                     toast({
                       title: "Copied to clipboard",
-                      description: "Please paste the JSON into Revit to load the family",
+                      description:
+                        "Please paste the JSON into Revit to load the family",
                     });
                   } catch (error) {
                     console.error("Error copying to clipboard:", error);
                     toast({
                       title: "Error",
-                      description: error instanceof Error ? error.message : "Failed to copy to clipboard",
+                      description:
+                        error instanceof Error
+                          ? error.message
+                          : "Failed to copy to clipboard",
                       variant: "destructive",
                     });
                   }

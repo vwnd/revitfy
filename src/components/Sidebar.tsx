@@ -34,6 +34,7 @@ import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
+import { useQuery } from "@tanstack/react-query";
 
 export function Sidebar() {
   const { isCollapsed, toggleSidebar } = useSidebar();
@@ -87,13 +88,23 @@ export function Sidebar() {
       path: "/playlists",
     },
   ];
-  const playlists = [
-    "Structural Elements",
-    "MEP Components",
-    "Furniture & Fixtures",
-    "Frequently Used",
-    "Recent Projects",
-  ];
+
+  // Fetch recent playlists from the server
+  const { data: playlistsData, isLoading: isLoadingPlaylists } = useQuery({
+    queryKey: ["playlists", "sidebar"],
+    queryFn: async () => {
+      const response = await fetch("/api/playlist");
+      if (!response.ok) {
+        throw new Error("Failed to fetch playlists");
+      }
+      const result = await response.json();
+      return result.data || [];
+    },
+    staleTime: 30000, // Cache for 30 seconds
+  });
+
+  // Get recent playlists (limit to 10 most recent)
+  const recentPlaylists = playlistsData?.slice(0, 10) || [];
 
   return (
     <div
@@ -109,20 +120,22 @@ export function Sidebar() {
         )}
       >
         {!isCollapsed ? (
-          <div className="flex items-center gap-3">
+          <NavLink to="/" className="flex items-center gap-3 hover:opacity-80 transition-opacity">
             <img 
               src="/revitfy-logo-white.png" 
               alt="Revitfy Logo" 
               className="h-8 w-8 shrink-0"
             />
             <h1 className="text-2xl font-bold text-white">Revitfy</h1>
-          </div>
+          </NavLink>
         ) : (
-          <img 
-            src="/revitfy-logo-white.png" 
-            alt="Revitfy Logo" 
-            className="h-8 w-8 shrink-0"
-          />
+          <NavLink to="/" className="hover:opacity-80 transition-opacity">
+            <img 
+              src="/revitfy-logo-white.png" 
+              alt="Revitfy Logo" 
+              className="h-8 w-8 shrink-0"
+            />
+          </NavLink>
         )}
         <Tooltip>
           <TooltipTrigger asChild>
@@ -256,14 +269,32 @@ export function Sidebar() {
               <h3 className="px-3 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                 Playlists
               </h3>
-              {playlists.map((playlist) => (
-                <button
-                  key={playlist}
-                  className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary"
-                >
-                  {playlist}
-                </button>
-              ))}
+              {isLoadingPlaylists ? (
+                <div className="px-3 space-y-2">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <div
+                      key={i}
+                      className="h-8 bg-secondary/50 rounded-md animate-pulse"
+                    />
+                  ))}
+                </div>
+              ) : recentPlaylists.length === 0 ? (
+                <p className="px-3 text-xs text-muted-foreground">
+                  No playlists yet
+                </p>
+              ) : (
+                recentPlaylists.map((playlist: { id: string; name: string }) => (
+                  <NavLink
+                    key={playlist.id}
+                    to={`/playlist/${playlist.id}`}
+                    className="w-full text-left px-3 py-2 text-sm text-muted-foreground hover:text-foreground transition-colors rounded-md hover:bg-secondary block"
+                    activeClassName="text-foreground bg-secondary"
+                    title={playlist.name}
+                  >
+                    <span className="block truncate">{playlist.name}</span>
+                  </NavLink>
+                ))
+              )}
             </div>
           </>
         )}

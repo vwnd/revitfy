@@ -139,6 +139,7 @@ export function CreatePlaylistDialog({
       });
 
       // Invalidate queries to refresh playlists
+      queryClient.invalidateQueries({ queryKey: ["playlists"] });
       queryClient.invalidateQueries({ queryKey: ["made-for-you"] });
       queryClient.invalidateQueries({ queryKey: ["recently-used"] });
 

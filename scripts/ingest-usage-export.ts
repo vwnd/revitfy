@@ -2,6 +2,7 @@ import "dotenv/config";
 import { readFile, readdir, access } from "fs/promises";
 import { constants } from "fs";
 import { join, dirname, extname, basename } from "path";
+import { randomUUID } from "crypto";
 import { AwsClient } from "aws4fetch";
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
@@ -165,13 +166,14 @@ async function findOrCreateFamily(
   });
 
   if (existing) {
-    console.log(`  Found existing family: ${familyName}`);
+    console.log(`  Found existing family: ${familyName} (ID: ${existing.id})`);
     return { id: existing.id, name: existing.name };
   }
 
   // Family doesn't exist, create it
   console.log(`  Creating new family: ${familyName}`);
   const familyId = generateFamilyId(familyName);
+  console.log(`  Generated family ID: ${familyId}`);
   // Use provided category, or fallback to inference if not provided
   const finalCategory = category || inferCategory(familyName);
 
@@ -247,6 +249,7 @@ async function findOrCreateFamily(
     rfaFileStorageKey: rfaStorageKey,
   });
 
+  console.log(`  ✅ Family created successfully (ID: ${family.id}, Name: ${family.name})`);
   return { id: family.id, name: family.name };
 }
 
@@ -264,7 +267,7 @@ async function findOrCreateProject(
   });
 
   if (existing) {
-    console.log(`  Found existing project: ${projectName}`);
+    console.log(`  Found existing project: ${projectName} (ID: ${existing.id})`);
     // Update harvestedAt
     await db
       .update(schema.projects)
@@ -276,15 +279,16 @@ async function findOrCreateProject(
     return projectId;
   }
 
-  console.log(`  Creating new project: ${projectName}`);
-  await db.insert(schema.projects).values({
+  console.log(`  Creating new project: ${projectName} (ID: ${projectId})`);
+  const [createdProject] = await db.insert(schema.projects).values({
     id: projectId,
     name: projectName,
     harvestedAt: exportDate,
     createdAt: new Date().toISOString(),
     updatedAt: new Date().toISOString(),
-  });
+  }).returning();
 
+  console.log(`  ✅ Project created successfully (ID: ${createdProject.id}, Name: ${createdProject.name})`);
   return projectId;
 }
 
@@ -307,17 +311,19 @@ async function upsertFamilyUsage(
 
   if (existing) {
     // Update existing record
-    await db
+    const [updated] = await db
       .update(schema.familyUsage)
       .set({
         usageCount: usageRecord.usageCount,
         lastUsed: usageRecord.lastUsed,
         updatedAt: usageRecord.updatedAt,
       })
-      .where(eq(schema.familyUsage.id, existing.id));
+      .where(eq(schema.familyUsage.id, existing.id))
+      .returning();
+    console.log(`    Updated usage record (ID: ${updated.id}, Usage Count: ${updated.usageCount})`);
   } else {
     // Create new record
-    await db.insert(schema.familyUsage).values({
+    const [created] = await db.insert(schema.familyUsage).values({
       id: usageRecord.id,
       familyId: familyDbId,
       projectId: projectId,
@@ -325,7 +331,8 @@ async function upsertFamilyUsage(
       lastUsed: usageRecord.lastUsed,
       createdAt: usageRecord.createdAt,
       updatedAt: usageRecord.updatedAt,
-    });
+    }).returning();
+    console.log(`    Created usage record (ID: ${created.id}, Usage Count: ${created.usageCount})`);
   }
 }
 
@@ -441,50 +448,122 @@ async function ingestUsageExport(jsonFilePath: string) {
 
   // Create playlist with all families from this project
   console.log(`\n🎵 Creating playlist for project: ${projectName}`);
-  const playlistId = `playlist_${projectId}`;
+  const playlistId = randomUUID();
   const playlistName = `${projectName} - Families`;
+  console.log(`  Generated playlist ID (GUID): ${playlistId}`);
+  console.log(`  User ID: ${env.USER_ID}`);
+
+  let finalPlaylistId: string = playlistId;
 
   try {
-    // Check if playlist already exists
+    // First verify the user exists (foreign key constraint check)
+    const userExists = await db.query.user.findFirst({
+      where: eq(schema.user.id, env.USER_ID),
+    });
+    
+    if (!userExists) {
+      throw new Error(`User with ID ${env.USER_ID} does not exist in database. Cannot create playlist.`);
+    }
+    console.log(`  ✅ Verified user exists: ${userExists.name} (${userExists.email})`);
+
+    // Check if playlist already exists (by project name, since we're using GUIDs now)
+    // We'll check by name and userId to avoid duplicates
     const existingPlaylist = await db.query.playlists.findFirst({
-      where: eq(schema.playlists.id, playlistId),
+      where: and(
+        eq(schema.playlists.name, playlistName),
+        eq(schema.playlists.userId, env.USER_ID)
+      ),
     });
 
     if (!existingPlaylist) {
-      await createPlaylist(db, {
-        id: playlistId,
-        name: playlistName,
-        userId: env.USER_ID,
-        description: `All families used in project: ${projectName}`,
-      });
-      console.log(`  ✅ Created playlist: ${playlistName}`);
+      console.log(`  Creating new playlist...`);
+      try {
+        const createdPlaylist = await createPlaylist(db, {
+          id: playlistId,
+          name: playlistName,
+          userId: env.USER_ID,
+          description: `All families used in project: ${projectName}`,
+        });
+        console.log(`  ✅ Created playlist: ${playlistName} (ID: ${createdPlaylist.id})`);
+        console.log(`  Playlist details:`, JSON.stringify({
+          id: createdPlaylist.id,
+          name: createdPlaylist.name,
+          userId: createdPlaylist.userId,
+          description: createdPlaylist.description,
+          createdAt: createdPlaylist.createdAt,
+        }, null, 2));
+        
+        finalPlaylistId = createdPlaylist.id;
+        
+        // Verify playlist was created by querying it back
+        const verifyPlaylist = await db.query.playlists.findFirst({
+          where: eq(schema.playlists.id, finalPlaylistId),
+        });
+        if (verifyPlaylist) {
+          console.log(`  ✅ Verified playlist exists in database (ID: ${verifyPlaylist.id})`);
+        } else {
+          console.error(`  ❌ WARNING: Playlist not found in database after creation!`);
+          throw new Error(`Playlist creation failed - playlist not found after insert`);
+        }
+      } catch (error) {
+        console.error(`  ❌ Error creating playlist:`, error);
+        if (error instanceof Error) {
+          console.error(`  Error message: ${error.message}`);
+          console.error(`  Error stack: ${error.stack}`);
+        }
+        throw error;
+      }
     } else {
-      console.log(`  ℹ️  Playlist already exists: ${playlistName}`);
+      console.log(`  ℹ️  Playlist already exists: ${playlistName} (ID: ${existingPlaylist.id})`);
+      finalPlaylistId = existingPlaylist.id;
     }
 
     // Add all families to playlist
     for (let i = 0; i < processedFamilies.length; i++) {
       const family = processedFamilies[i];
       try {
-        await addFamilyToPlaylist(db, playlistId, family.id, i);
-        console.log(`  ✅ Added ${family.name} to    playlist`);
+        await addFamilyToPlaylist(db, finalPlaylistId, family.id, i);
+        console.log(`  ✅ Added ${family.name} (ID: ${family.id}) to playlist at order ${i}`);
       } catch (error: unknown) {
         if (error instanceof Error && error.message === "Family already in playlist") {
-          console.log(`  ℹ️  ${family.name} already in playlist`);
+          console.log(`  ℹ️  ${family.name} (ID: ${family.id}) already in playlist`);
         } else {
-          console.error(`  ❌ Error adding ${family.name} to playlist:`, error);
+          console.error(`  ❌ Error adding ${family.name} (ID: ${family.id}) to playlist:`, error);
+          if (error instanceof Error) {
+            console.error(`  Error details: ${error.message}`);
+          }
         }
       }
     }
+    
+    // Final verification: check playlist and families count
+    const finalPlaylist = await db.query.playlists.findFirst({
+      where: eq(schema.playlists.id, finalPlaylistId),
+    });
+    
+    if (!finalPlaylist) {
+      console.error(`  ❌ CRITICAL: Playlist not found in database! (ID: ${finalPlaylistId})`);
+    } else {
+      console.log(`  ✅ Final verification: Playlist exists (ID: ${finalPlaylist.id}, Name: ${finalPlaylist.name})`);
+    }
+    
+    const playlistFamiliesCount = await db.query.playlistFamilies.findMany({
+      where: eq(schema.playlistFamilies.playlistId, finalPlaylistId),
+    });
+    console.log(`  📊 Total families in playlist: ${playlistFamiliesCount.length}`);
   } catch (error) {
     console.error(`  ❌ Error creating playlist:`, error);
+    if (error instanceof Error) {
+      console.error(`  Error message: ${error.message}`);
+      console.error(`  Error stack:`, error.stack);
+    }
     throw error;
   }
 
   console.log(`\n✅ Ingest completed successfully!`);
   console.log(`   - Processed ${processedFamilies.length} families`);
-  console.log(`   - Created/updated project: ${projectName}`);
-  console.log(`   - Created playlist: ${playlistName}`);
+  console.log(`   - Created/updated project: ${projectName} (ID: ${projectId})`);
+  console.log(`   - Created playlist: ${playlistName} (ID: ${finalPlaylistId})`);
 }
 
 // Run the script
