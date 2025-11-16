@@ -1,8 +1,6 @@
-import { HeadContent, Scripts, createRootRoute } from "@tanstack/react-router";
-import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 import { TanStackDevtools } from "@tanstack/react-devtools";
-
-import Header from "../components/Header";
+import { createRootRoute, HeadContent, Scripts } from "@tanstack/react-router";
+import { TanStackRouterDevtoolsPanel } from "@tanstack/react-router-devtools";
 
 import appCss from "../styles.css?url";
 
@@ -17,7 +15,7 @@ export const Route = createRootRoute({
 				content: "width=device-width, initial-scale=1",
 			},
 			{
-				title: "TanStack Start Starter",
+				title: "Revitfy",
 			},
 		],
 		links: [
@@ -38,8 +36,12 @@ function RootDocument({ children }: { children: React.ReactNode }) {
 				<HeadContent />
 			</head>
 			<body>
-				<Header />
-				{children}
+				<div className="bg-pink-300">Header</div>
+				<div className="flex">
+					<div className="bg-blue-300">Sidebar</div>
+					<div className="bg-green-300 flex-1">{children}</div>
+					<div className="bg-yellow-300">Right Sidebar</div>
+				</div>
 				<TanStackDevtools
 					config={{
 						position: "bottom-right",

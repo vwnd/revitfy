@@ -12,7 +12,8 @@
 	},
 	"editor.codeActionsOnSave": {
 		"source.fixAll.biome": "explicit",
-		"source.organizeImports.biome": "explicit"
+		"source.organizeImports.biome": "explicit",
+		"source.removeUnusedImports": "explicit"
 	},
 	"files.associations": {
 		"*.css": "tailwindcss"
