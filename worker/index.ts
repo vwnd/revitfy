@@ -1,5 +1,13 @@
+import { AwsClient } from 'aws4fetch'
 import { Hono } from 'hono'
-const app = new Hono()
+
+interface Bindings {
+  R2_ACCESS_KEY_ID: string
+  R2_SECRET_ACCESS_KEY: string
+  CLOUDFLARE_ACCOUNT_ID: string
+}
+
+const app = new Hono<{ Bindings: Bindings }>()
 
 app.get('/api/', (c) => c.json({ name: 'Hono!' }))
 
@@ -180,6 +188,34 @@ app.get('/api/family/:id', (c) => {
 
   return c.json({
     data: data.find((item) => item.id === id)
+  })
+})
+
+app.post('/api/create-upload-url', async (c) => {
+  const { familyId, fileName } = await c.req.json()
+  
+  const client = new AwsClient({
+    accessKeyId: c.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
+  })
+
+  // Replace with your bucket name and account ID
+  const bucketName = "revitfy-storage";
+  const accountId = c.env.CLOUDFLARE_ACCOUNT_ID;
+
+  const url = new URL(
+    `https://${bucketName}.${accountId}.r2.cloudflarestorage.com`,
+  );
+
+  // Include filename with extension if provided, otherwise just use familyId
+  const filePath = fileName ? `${familyId}/${fileName}` : `${familyId}/preview`;
+  url.pathname = `/${filePath}`;
+  url.searchParams.set('X-Amz-Expires', '3600');
+
+  const signed = await client.sign(new Request(url, {method: 'PUT'}), { aws: { signQuery: true }})
+
+  return c.json({
+    uploadUrl: signed.url,
   })
 })
 

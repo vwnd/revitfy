@@ -7,13 +7,21 @@ import {
   SheetTitle,
 } from "@/components/ui/sheet";
 import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
   UserPlus,
   ThumbsUp,
   ThumbsDown,
   Play,
   MoreVertical,
+  Upload,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 interface FamilyType {
@@ -55,6 +63,10 @@ export default function FamilyDetail() {
   const [thumbsUp, setThumbsUp] = useState(false);
   const [thumbsDown, setThumbsDown] = useState(false);
   const [selectedType, setSelectedType] = useState<FamilyType | null>(null);
+  const [showUploadDialog, setShowUploadDialog] = useState(false);
+  const [uploading, setUploading] = useState(false);
+  const [previewImage, setPreviewImage] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const { data: familyData, isLoading } = useQuery({
     queryKey: ["family", id],
@@ -62,6 +74,76 @@ export default function FamilyDetail() {
   });
 
   const family: FamilyDetail | undefined = familyData?.data;
+
+  const handleNoPreviewClick = () => {
+    setShowUploadDialog(true);
+  };
+
+  const handleFileSelect = async (
+    event: React.ChangeEvent<HTMLInputElement>
+  ) => {
+    const file = event.target.files?.[0];
+    if (!file || !id) return;
+
+    // Validate it's an image file
+    if (!file.type.startsWith("image/")) {
+      alert("Please select an image file");
+      return;
+    }
+
+    setUploading(true);
+    try {
+      // Get upload URL from API
+      const response = await fetch("/api/create-upload-url", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          familyId: id,
+          fileName: file.name,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to get upload URL");
+      }
+
+      const { uploadUrl } = await response.json();
+
+      // Upload the file to the signed URL
+      const uploadResponse = await fetch(uploadUrl, {
+        method: "PUT",
+        body: file,
+        headers: {
+          "Content-Type": file.type,
+        },
+      });
+
+      if (!uploadResponse.ok) {
+        throw new Error("Failed to upload file");
+      }
+
+      // Create a preview URL (you may need to adjust this based on your R2 public URL)
+      // For now, we'll use a data URL for immediate preview
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setPreviewImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+
+      setShowUploadDialog(false);
+    } catch (error) {
+      console.error("Upload error:", error);
+      alert("Failed to upload image. Please try again.");
+    } finally {
+      setUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+    }
+  };
 
   if (isLoading) {
     return (
@@ -85,8 +167,25 @@ export default function FamilyDetail() {
       <div className="bg-gradient-to-b from-secondary to-background p-8">
         <div className="flex gap-8 items-end">
           {/* Preview Image */}
-          <div className="w-64 h-64 bg-card rounded-lg shadow-2xl flex items-center justify-center">
-            <div className="text-muted-foreground">Speckle 3D Preview</div>
+          <div
+            className="w-64 h-64 bg-card rounded-lg shadow-2xl flex items-center justify-center cursor-pointer hover:bg-secondary transition-colors relative overflow-hidden"
+            onClick={handleNoPreviewClick}
+          >
+            {previewImage ? (
+              <img
+                src={previewImage}
+                alt={family.name}
+                className="w-full h-full object-cover"
+              />
+            ) : (
+              <div className="text-center space-y-2">
+                <Upload className="w-8 h-8 mx-auto text-muted-foreground" />
+                <div className="text-muted-foreground">No Preview</div>
+                <div className="text-xs text-muted-foreground">
+                  Click to upload
+                </div>
+              </div>
+            )}
           </div>
 
           {/* Family Info */}
@@ -270,7 +369,7 @@ export default function FamilyDetail() {
             <div className="bg-muted/50 rounded-lg p-8 aspect-video flex items-center justify-center border">
               <div className="text-center space-y-2">
                 <div className="text-4xl">🔲</div>
-                <div className="text-muted-foreground">Speckle 3D Preview</div>
+                <div className="text-muted-foreground">No Preview</div>
                 <div className="text-sm text-muted-foreground">
                   Interactive 3D model will load here
                 </div>
@@ -312,6 +411,46 @@ export default function FamilyDetail() {
           </div>
         </SheetContent>
       </Sheet>
+
+      {/* Upload Dialog */}
+      <Dialog open={showUploadDialog} onOpenChange={setShowUploadDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Upload Preview Image</DialogTitle>
+            <DialogDescription>
+              Select an image file to upload as the preview for this family.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              onChange={handleFileSelect}
+              className="hidden"
+              id="image-upload"
+              disabled={uploading}
+            />
+            <label htmlFor="image-upload">
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full"
+                disabled={uploading}
+                onClick={() => fileInputRef.current?.click()}
+              >
+                <Upload className="w-4 h-4 mr-2" />
+                {uploading ? "Uploading..." : "Choose Image File"}
+              </Button>
+            </label>
+            {uploading && (
+              <div className="text-sm text-muted-foreground text-center">
+                Uploading image...
+              </div>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
