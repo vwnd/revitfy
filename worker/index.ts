@@ -142,6 +142,37 @@ app.post('/api/create-upload-url', async (c) => {
   })
 })
 
+// Create presigned download URL for RFA files
+app.post('/api/create-download-url', async (c) => {
+  const { storageKey } = await c.req.json()
+  
+  if (!storageKey) {
+    return c.json({ error: 'Storage key is required' }, 400)
+  }
+  
+  const client = new AwsClient({
+    accessKeyId: c.env.R2_ACCESS_KEY_ID,
+    secretAccessKey: c.env.R2_SECRET_ACCESS_KEY,
+  })
+
+  const bucketName = "revitfy-storage";
+  const accountId = c.env.CLOUDFLARE_ACCOUNT_ID;
+
+  const url = new URL(
+    `https://${bucketName}.${accountId}.r2.cloudflarestorage.com`,
+  );
+  
+  url.pathname = `/${storageKey}`;
+  url.searchParams.set('X-Amz-Expires', '600'); // 10 minutes expiry
+
+  // Create a GET request and sign it
+  const signed = await client.sign(new Request(url, { method: 'GET' }), { aws: { signQuery: true }})
+
+  return c.json({
+    downloadUrl: signed.url,
+  })
+})
+
 // Serve images from R2 storage
 app.get('/api/storage/*', async (c) => {
   try {

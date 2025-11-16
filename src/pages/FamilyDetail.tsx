@@ -40,6 +40,7 @@ interface FamilyDetail {
   dislikesCount: number;
   lastUsed: string;
   previewImageStorageKey?: string;
+  rfaFileStorageKey?: string;
   types?: FamilyType[];
   usageStatistics: {
     relatedProjects: Array<{
@@ -329,7 +330,60 @@ export default function FamilyDetail() {
 
       {/* Actions */}
       <div className="p-8 flex gap-4 items-center">
-        <Button size="lg" className="rounded-full px-8 gap-2">
+        <Button 
+          size="lg" 
+          className="rounded-full px-8 gap-2"
+          onClick={async () => {
+            if (!family?.rfaFileStorageKey) {
+              toast({
+                title: "Error",
+                description: "RFA file not available for this family",
+                variant: "destructive",
+              });
+              return;
+            }
+
+            try {
+              // Get presigned download URL
+              const response = await fetch("/api/create-download-url", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                  storageKey: family.rfaFileStorageKey,
+                }),
+              });
+
+              if (!response.ok) {
+                throw new Error("Failed to create download URL");
+              }
+
+              const { downloadUrl } = await response.json();
+
+              // Create JSON payload
+              const jsonPayload = {
+                messageType: "placeFamily",
+                families: [downloadUrl],
+              };
+
+              // Copy to clipboard
+              await navigator.clipboard.writeText(JSON.stringify(jsonPayload, null, 2));
+
+              toast({
+                title: "Copied to clipboard",
+                description: "Please paste the JSON into Revit to load the family",
+              });
+            } catch (error) {
+              console.error("Error copying to clipboard:", error);
+              toast({
+                title: "Error",
+                description: error instanceof Error ? error.message : "Failed to copy to clipboard",
+                variant: "destructive",
+              });
+            }
+          }}
+        >
           <Play className="w-5 h-5 fill-current" />
           Load in Revit
         </Button>
@@ -505,7 +559,60 @@ export default function FamilyDetail() {
 
             {/* Actions */}
             <div className="flex gap-3 pt-2">
-              <Button size="lg" className="flex-1">
+              <Button 
+                size="lg" 
+                className="flex-1"
+                onClick={async () => {
+                  if (!family?.rfaFileStorageKey) {
+                    toast({
+                      title: "Error",
+                      description: "RFA file not available for this family",
+                      variant: "destructive",
+                    });
+                    return;
+                  }
+
+                  try {
+                    // Get presigned download URL
+                    const response = await fetch("/api/create-download-url", {
+                      method: "POST",
+                      headers: {
+                        "Content-Type": "application/json",
+                      },
+                      body: JSON.stringify({
+                        storageKey: family.rfaFileStorageKey,
+                      }),
+                    });
+
+                    if (!response.ok) {
+                      throw new Error("Failed to create download URL");
+                    }
+
+                    const { downloadUrl } = await response.json();
+
+                    // Create JSON payload
+                    const jsonPayload = {
+                      messageType: "placeFamily",
+                      families: [downloadUrl],
+                    };
+
+                    // Copy to clipboard
+                    await navigator.clipboard.writeText(JSON.stringify(jsonPayload, null, 2));
+
+                    toast({
+                      title: "Copied to clipboard",
+                      description: "Please paste the JSON into Revit to load the family",
+                    });
+                  } catch (error) {
+                    console.error("Error copying to clipboard:", error);
+                    toast({
+                      title: "Error",
+                      description: error instanceof Error ? error.message : "Failed to copy to clipboard",
+                      variant: "destructive",
+                    });
+                  }
+                }}
+              >
                 <Play className="w-5 h-5 mr-2 fill-current" />
                 Load in Revit
               </Button>

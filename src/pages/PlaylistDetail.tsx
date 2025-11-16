@@ -49,6 +49,7 @@ interface PlaylistDetail {
     name: string;
     category: string;
     previewImageStorageKey?: string;
+    rfaFileStorageKey?: string;
     order: number;
     likesCount?: number;
     location?: string;
@@ -472,9 +473,78 @@ export default function PlaylistDetail() {
             size="lg" 
             className="rounded-full px-8 gap-2 bg-green-500 hover:bg-green-600 text-white h-14"
             disabled={isLoading}
+            onClick={async () => {
+              if (!playlist?.families || playlist.families.length === 0) {
+                toast({
+                  title: "Error",
+                  description: "No families in this playlist",
+                  variant: "destructive",
+                });
+                return;
+              }
+
+              try {
+                // Filter families that have RFA files
+                const familiesWithRfa = playlist.families.filter(
+                  (f) => f.rfaFileStorageKey
+                );
+
+                if (familiesWithRfa.length === 0) {
+                  toast({
+                    title: "Error",
+                    description: "No families with RFA files available in this playlist",
+                    variant: "destructive",
+                  });
+                  return;
+                }
+
+                // Create download URLs for all families
+                const downloadUrlPromises = familiesWithRfa.map(async (family) => {
+                  const response = await fetch("/api/create-download-url", {
+                    method: "POST",
+                    headers: {
+                      "Content-Type": "application/json",
+                    },
+                    body: JSON.stringify({
+                      storageKey: family.rfaFileStorageKey,
+                    }),
+                  });
+
+                  if (!response.ok) {
+                    throw new Error(`Failed to create download URL for ${family.name}`);
+                  }
+
+                  const { downloadUrl } = await response.json();
+                  return downloadUrl;
+                });
+
+                const downloadUrls = await Promise.all(downloadUrlPromises);
+
+                // Create JSON payload
+                const jsonPayload = {
+                  messageType: "placeFamily",
+                  families: downloadUrls,
+                };
+
+                // Copy to clipboard
+                await navigator.clipboard.writeText(JSON.stringify(jsonPayload, null, 2));
+
+                toast({
+                  title: "Copied to clipboard",
+                  description: `Please paste the JSON into Revit to place ${downloadUrls.length} ${downloadUrls.length === 1 ? 'family' : 'families'}`,
+                });
+              } catch (error) {
+                console.error("Error copying to clipboard:", error);
+                toast({
+                  title: "Error",
+                  description: error instanceof Error ? error.message : "Failed to copy to clipboard",
+                  variant: "destructive",
+                });
+              }
+            }}
           >
             <Play className="w-6 h-6 fill-current" />
-            Play
+            Place in Revit
           </Button>
           <Button
             size="icon"

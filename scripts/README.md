@@ -9,16 +9,19 @@ This script ingests family usage export data from Revit projects into the databa
 You can run this script using one of the following methods:
 
 **Using tsx (recommended):**
+
 ```bash
 npx tsx scripts/ingest-usage-export.ts <path-to-json-file>
 ```
 
 **Using ts-node:**
+
 ```bash
 npx ts-node scripts/ingest-usage-export.ts <path-to-json-file>
 ```
 
 **After compiling:**
+
 ```bash
 tsc scripts/ingest-usage-export.ts --outDir dist --module esnext --target es2020
 node dist/ingest-usage-export.js <path-to-json-file>
@@ -56,10 +59,12 @@ The script requires the following environment variables to be set:
 ### File Structure Expected
 
 The script expects the JSON file to be in a folder that also contains:
+
 - `.rfa` files named `{familyName}.rfa`
 - Preview images (PNG) that contain the family name in the filename
 
 Example folder structure:
+
 ```
 Allen Institute/
   ├── family_usage_export_log.json
@@ -72,6 +77,7 @@ Allen Institute/
 ### Category Inference
 
 The script automatically infers categories from family names:
+
 - `*_DOR_*` → "Doors"
 - `*_WIN_*` → "Windows"
 - `*_WAL_*` → "Walls"
@@ -85,9 +91,9 @@ The script automatically infers categories from family names:
 ### Output
 
 The script provides detailed console output showing:
+
 - Project information
 - Each family being processed
 - File uploads
 - Playlist creation
 - Summary of processed items
-
