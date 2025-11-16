@@ -11,6 +11,7 @@ import Search from "./pages/Search";
 import Library from "./pages/Library";
 import FamilyDetail from "./pages/FamilyDetail";
 import PlaylistDetail from "./pages/PlaylistDetail";
+import Playlists from "./pages/Playlists";
 import NotFound from "./pages/NotFound";
 import SignIn from "./pages/SignIn";
 import SignUp from "./pages/SignUp";
@@ -63,6 +64,14 @@ const AppContent = () => {
           element={
             <ProtectedRoute>
               <FamilyDetail />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/playlists"
+          element={
+            <ProtectedRoute>
+              <Playlists />
             </ProtectedRoute>
           }
         />

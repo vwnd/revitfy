@@ -7,6 +7,7 @@ import {
   updatePlaylistPreviewImage,
   likePlaylist,
   getPlaylistFamilies,
+  getAllPlaylistsWithDetails,
 } from "./db/playlists";
 import { playlists, user } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
@@ -88,6 +89,22 @@ app.post("/", async (c) => {
     );
   } catch (error) {
     console.error("Error creating playlist:", error);
+    return c.json({ error: "Internal server error" }, 500);
+  }
+});
+
+// Get all playlists (must come before /:id route)
+app.get("/", async (c) => {
+  const db = c.get("db");
+
+  try {
+    const playlists = await getAllPlaylistsWithDetails(db);
+
+    return c.json({
+      data: playlists,
+    });
+  } catch (error) {
+    console.error("Error fetching playlists:", error);
     return c.json({ error: "Internal server error" }, 500);
   }
 });

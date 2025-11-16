@@ -8,6 +8,7 @@ import {
   PanelLeft,
   PanelRight,
   LogOut,
+  Music,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
@@ -79,6 +80,11 @@ export function Sidebar() {
       icon: Library,
       label: "Your Library",
       path: "/library",
+    },
+    {
+      icon: Music,
+      label: "Playlists",
+      path: "/playlists",
     },
   ];
   const playlists = [

@@ -1,4 +1,4 @@
-import { Heart, Play } from "lucide-react";
+import { Heart, Play, Music } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { useState } from "react";
@@ -64,7 +64,7 @@ export function PlaylistCard({
       onClick={() => navigate(`/playlist/${id}`)}
     >
       {/* Preview Card */}
-      <div className="aspect-square bg-primary/10 rounded-md mb-4 relative overflow-hidden">
+      <div className="aspect-square bg-primary/30 rounded-md mb-4 relative overflow-hidden">
         {previewImageStorageKey ? (
           <img
             src={`/api/storage/${previewImageStorageKey}`}
@@ -73,7 +73,7 @@ export function PlaylistCard({
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center">
-            <div className="text-4xl">🎵</div>
+            <Music className="w-12 h-12 text-primary/60" />
           </div>
         )}
         {isHovered && (
