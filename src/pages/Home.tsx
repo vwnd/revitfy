@@ -1,6 +1,7 @@
 import { FilterBar } from "@/components/FilterBar";
 import { FamilyCard } from "@/components/FamilyCard";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 const mockFamilies = [
   {
     id: "1",
@@ -54,30 +55,20 @@ const mockFamilies = [
 export default function Home() {
   const [name, setName] = useState(null);
 
+  const { data: madeForYou, isLoading } = useQuery({
+    queryKey: ["made-for-you"],
+    queryFn: () => fetch("/api/made-for-you").then((res) => res.json()),
+  });
+
   return (
     <div className="min-h-screen ml-64">
       <div className="p-8">
-        <div className="card">
-          <button
-            onClick={() => {
-              fetch("/api/")
-                .then((res) => res.json() as Promise<{ name: string }>)
-                .then((data) => setName(data.name));
-            }}
-            aria-label="get name"
-          >
-            Name from API is: {name}
-          </button>
-          <p>
-            Edit <code>api/index.ts</code> to change the name
-          </p>
-        </div>
         <FilterBar />
 
         <div className="mt-8">
           <h2 className="text-2xl font-bold mb-6">Made for you</h2>
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-6">
-            {mockFamilies.map((family) => (
+            {madeForYou?.data.map((family) => (
               <FamilyCard key={family.id} {...family} />
             ))}
           </div>
