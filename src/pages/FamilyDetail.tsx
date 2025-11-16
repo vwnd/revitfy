@@ -1,24 +1,83 @@
 import { useParams } from "react-router-dom";
 import { Button } from "@/components/ui/button";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { UserPlus, ThumbsUp, ThumbsDown, Play, MoreVertical } from "lucide-react";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
+import {
+  UserPlus,
+  ThumbsUp,
+  ThumbsDown,
+  Play,
+  MoreVertical,
+} from "lucide-react";
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
-const mockFamilyTypes = [
-  { id: "1", name: "Type A - 12x12", usageCount: 450 },
-  { id: "2", name: "Type B - 18x18", usageCount: 320 },
-  { id: "3", name: "Type C - 24x24", usageCount: 280 },
-  { id: "4", name: "Type D - 30x30", usageCount: 200 },
-];
+interface FamilyType {
+  id: string;
+  name: string;
+  usageCount: number;
+}
+
+interface FamilyDetail {
+  id: string;
+  name: string;
+  category: string;
+  usageCount: number;
+  likesCount: number;
+  dislikesCount: number;
+  lastUsed: string;
+  types: FamilyType[];
+  usageStatistics: {
+    relatedProjects: Array<{
+      projectId: string;
+      projectName: string;
+      usedCount: number;
+    }>;
+    relatedLocations: Array<{
+      cityName: string;
+      usageCount: number;
+    }>;
+    relatedPeriods: {
+      lastMonth: number;
+      lastQuarter: number;
+      lastYear: number;
+    };
+  };
+}
 
 export default function FamilyDetail() {
   const { id } = useParams();
   const [isLiked, setIsLiked] = useState(false);
   const [thumbsUp, setThumbsUp] = useState(false);
   const [thumbsDown, setThumbsDown] = useState(false);
-  const [likesCount] = useState(342);
-  const [dislikesCount] = useState(18);
-  const [selectedType, setSelectedType] = useState<typeof mockFamilyTypes[0] | null>(null);
+  const [selectedType, setSelectedType] = useState<FamilyType | null>(null);
+
+  const { data: familyData, isLoading } = useQuery({
+    queryKey: ["family", id],
+    queryFn: () => fetch(`/api/family/${id}`).then((res) => res.json()),
+  });
+
+  const family: FamilyDetail | undefined = familyData?.data;
+
+  if (isLoading) {
+    return (
+      <div className="min-h-screen ml-64 flex items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  if (!family) {
+    return (
+      <div className="min-h-screen ml-64 flex items-center justify-center">
+        <div className="text-muted-foreground">Family not found</div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen ml-64">
@@ -35,20 +94,28 @@ export default function FamilyDetail() {
             <p className="text-sm font-semibold uppercase tracking-wider mb-2">
               Family
             </p>
-            <h1 className="text-5xl font-bold mb-4">
-              Structural Column - Wide Flange
-            </h1>
-            <p className="text-muted-foreground mb-4">Structural Columns</p>
+            <h1 className="text-5xl font-bold mb-4">{family.name}</h1>
+            <p className="text-muted-foreground mb-4">{family.category}</p>
             <div className="flex items-center gap-2 text-sm">
-              <span className="text-muted-foreground">1,250 total uses</span>
+              <span className="text-muted-foreground">
+                {family.usageCount.toLocaleString()} total uses
+              </span>
               <span className="text-muted-foreground">•</span>
-              <span className="text-muted-foreground">4 types</span>
+              <span className="text-muted-foreground">
+                {family.types.length} types
+              </span>
               <span className="text-muted-foreground">•</span>
-              <span className="text-muted-foreground">{likesCount} likes</span>
+              <span className="text-muted-foreground">
+                {family.likesCount} likes
+              </span>
               <span className="text-muted-foreground">•</span>
-              <span className="text-muted-foreground">{dislikesCount} dislikes</span>
+              <span className="text-muted-foreground">
+                {family.dislikesCount} dislikes
+              </span>
               <span className="text-muted-foreground">•</span>
-              <span className="text-muted-foreground">Last used 2 days ago</span>
+              <span className="text-muted-foreground">
+                Last used {family.lastUsed}
+              </span>
             </div>
           </div>
         </div>
@@ -107,7 +174,7 @@ export default function FamilyDetail() {
       <div className="p-8">
         <h2 className="text-2xl font-bold mb-6">Family Types</h2>
         <div className="space-y-2">
-          {mockFamilyTypes.map((type, index) => (
+          {family.types.map((type, index) => (
             <div
               key={type.id}
               className="flex items-center gap-4 p-4 rounded-md hover:bg-secondary transition-colors group cursor-pointer"
@@ -138,43 +205,75 @@ export default function FamilyDetail() {
 
       {/* Usage Stats */}
       <div className="p-8">
-        <h2 className="text-2xl font-bold mb-6">Usage Statistics</h2>
+        <h2 className="text-lg font-semibold mb-4">Usage Statistics</h2>
         <div className="grid grid-cols-3 gap-4">
-          <div className="bg-card p-6 rounded-lg">
-            <p className="text-muted-foreground text-sm mb-2">By Project</p>
-            <p className="text-2xl font-bold">Tower A: 560 uses</p>
-            <p className="text-lg">Campus B: 420 uses</p>
-            <p className="text-lg">Residential: 270 uses</p>
+          {/* By Project */}
+          <div className="bg-card p-4 rounded-lg space-y-1">
+            <p className="text-xs text-muted-foreground mb-1">By Project</p>
+            {family.usageStatistics.relatedProjects.map((project) => (
+              <div
+                key={project.projectId}
+                className="flex justify-between text-sm text-muted-foreground"
+              >
+                <span>{project.projectName}</span>
+                <span>{project.usedCount}</span>
+              </div>
+            ))}
           </div>
-          <div className="bg-card p-6 rounded-lg">
-            <p className="text-muted-foreground text-sm mb-2">By Office</p>
-            <p className="text-2xl font-bold">New York: 750 uses</p>
-            <p className="text-lg">San Francisco: 350 uses</p>
-            <p className="text-lg">London: 150 uses</p>
+          {/* By Office */}
+          <div className="bg-card p-4 rounded-lg space-y-1">
+            <p className="text-xs text-muted-foreground mb-1">By Office</p>
+            {family.usageStatistics.relatedLocations.map((location) => (
+              <div
+                key={location.cityName}
+                className="flex justify-between text-sm text-muted-foreground"
+              >
+                <span>{location.cityName}</span>
+                <span>{location.usageCount}</span>
+              </div>
+            ))}
           </div>
-          <div className="bg-card p-6 rounded-lg">
-            <p className="text-muted-foreground text-sm mb-2">By Quarter</p>
-            <p className="text-2xl font-bold">Q4 2024: 450 uses</p>
-            <p className="text-lg">Q3 2024: 380 uses</p>
-            <p className="text-lg">Q2 2024: 420 uses</p>
+          {/* By Period */}
+          <div className="bg-card p-4 rounded-lg space-y-1">
+            <p className="text-xs text-muted-foreground mb-1">By Period</p>
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>Last Year</span>
+              <span>{family.usageStatistics.relatedPeriods.lastYear}</span>
+            </div>
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>Last Quarter</span>
+              <span>{family.usageStatistics.relatedPeriods.lastQuarter}</span>
+            </div>
+            <div className="flex justify-between text-sm text-muted-foreground">
+              <span>Last Month</span>
+              <span>{family.usageStatistics.relatedPeriods.lastMonth}</span>
+            </div>
           </div>
         </div>
       </div>
 
       {/* Type Detail Drawer */}
-      <Sheet open={!!selectedType} onOpenChange={(open) => !open && setSelectedType(null)}>
-        <SheetContent side="right" className="w-[600px] sm:max-w-[600px] overflow-y-auto">
+      <Sheet
+        open={!!selectedType}
+        onOpenChange={(open) => !open && setSelectedType(null)}
+      >
+        <SheetContent
+          side="right"
+          className="w-[600px] sm:max-w-[600px] overflow-y-auto"
+        >
           <SheetHeader className="pb-6 border-b">
             <SheetTitle className="text-2xl">{selectedType?.name}</SheetTitle>
           </SheetHeader>
-          
+
           <div className="space-y-6 pt-6">
             {/* 3D Preview */}
             <div className="bg-muted/50 rounded-lg p-8 aspect-video flex items-center justify-center border">
               <div className="text-center space-y-2">
                 <div className="text-4xl">🔲</div>
                 <div className="text-muted-foreground">Speckle 3D Preview</div>
-                <div className="text-sm text-muted-foreground">Interactive 3D model will load here</div>
+                <div className="text-sm text-muted-foreground">
+                  Interactive 3D model will load here
+                </div>
               </div>
             </div>
 
@@ -182,7 +281,9 @@ export default function FamilyDetail() {
             <div className="grid grid-cols-2 gap-4 p-4 bg-muted/30 rounded-lg border">
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Usage Count</p>
-                <p className="text-2xl font-bold">{selectedType?.usageCount} uses</p>
+                <p className="text-2xl font-bold">
+                  {selectedType?.usageCount} uses
+                </p>
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Family Type</p>
@@ -190,11 +291,11 @@ export default function FamilyDetail() {
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Category</p>
-                <p className="text-lg">Structural Columns</p>
+                <p className="text-lg">{family.category}</p>
               </div>
               <div className="space-y-1">
                 <p className="text-sm text-muted-foreground">Last Used</p>
-                <p className="text-lg">2 days ago</p>
+                <p className="text-lg">{family.lastUsed}</p>
               </div>
             </div>
 
