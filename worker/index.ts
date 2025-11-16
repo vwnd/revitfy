@@ -1,13 +1,30 @@
 import { AwsClient } from 'aws4fetch'
 import { Hono } from 'hono'
+import { getDb } from './db'
+import { getFamilyById } from './db/families'
+import { families } from '../drizzle/schema'
+import { eq } from 'drizzle-orm'
 
-interface Bindings {
-  R2_ACCESS_KEY_ID: string
-  R2_SECRET_ACCESS_KEY: string
-  CLOUDFLARE_ACCOUNT_ID: string
+interface Context {
+  Bindings: {
+    R2_ACCESS_KEY_ID: string
+    R2_SECRET_ACCESS_KEY: string
+    CLOUDFLARE_ACCOUNT_ID: string
+    DATABASE_URL?: string
+    HYPERDRIVE?: { connectionString: string }
+  }
+  Variables: {
+    db: ReturnType<typeof getDb>
+  }
 }
 
-const app = new Hono<{ Bindings: Bindings }>()
+const app = new Hono<Context>()
+
+// Database helper middleware
+app.use('*', async (c, next) => {
+  c.set('db', getDb(c.env))
+  await next()
+})
 
 app.get('/api/', (c) => c.json({ name: 'Hono!' }))
 
@@ -126,73 +143,29 @@ app.get('/api/recently-used', (c) => {
   })
 })
 
-app.get('/api/family/:id', (c) => {
+app.get('/api/family/:id', async (c) => {
   const { id } = c.req.param()
+  const db = c.get('db')
   
-  const data = [
-    {
-      id: "1",
-      name: "Structural Column - Wide Flange",
-      category: "Structural Columns",
-      usageCount: 1250,
-      likesCount: 342,
-      dislikesCount: 18,
-      lastUsed: "2 days ago",
-      types: [
-        { id: "1", name: "Type A - 12x12", usageCount: 450 },
-        { id: "2", name: "Type B - 18x18", usageCount: 320 },
-        { id: "3", name: "Type C - 24x24", usageCount: 280 },
-        { id: "4", name: "Type D - 30x30", usageCount: 200 },
-      ],
-      usageStatistics: {
-        relatedProjects: [
-          {
-            "projectId": "1",
-            "projectName": "Tower A",
-            "usedCount": 560,
-          },
-          {
-            "projectId": "2",
-            "projectName": "Campus B",
-            "usedCount": 420,
-          },
-          {
-            "projectId": "3",
-            "projectName": "Residential",
-            "usedCount": 270,
-          }
-        ],
-        relatedLocations: [
-          {
-            "cityName": "New York",
-            "usageCount": 750,
-          },
-          {
-            "cityName": "San Francisco",
-            "usageCount": 350,
-          },
-          {
-            "cityName": "London",
-            "usageCount": 150,
-          }
-        ],
-        relatedPeriods: {
-          lastMonth: 200,
-          lastQuarter: 450,
-          lastYear: 1800,
-        },
-      }
-    },
-  ]
+  try {
+    const family = await getFamilyById(db, id)
+    
+    if (!family) {
+      return c.json({ error: 'Family not found' }, 404)
+    }
 
-
-  return c.json({
-    data: data.find((item) => item.id === id)
-  })
+    return c.json({
+      data: family
+    })
+  } catch (error) {
+    console.error('Error fetching family:', error)
+    return c.json({ error: 'Internal server error' }, 500)
+  }
 })
 
 app.post('/api/create-upload-url', async (c) => {
-  const { familyId, fileName } = await c.req.json()
+  const { familyId, fileName, objectType, objectId } = await c.req.json()
+const db = c.get('db')
   
   const client = new AwsClient({
     accessKeyId: c.env.R2_ACCESS_KEY_ID,
@@ -213,6 +186,20 @@ app.post('/api/create-upload-url', async (c) => {
   url.searchParams.set('X-Amz-Expires', '3600');
 
   const signed = await client.sign(new Request(url, {method: 'PUT'}), { aws: { signQuery: true }})
+
+  if (objectType === "family") {
+    const family = await db.query.families.findFirst({
+      where: eq(families.id, objectId),
+    })
+    
+    if (!family) {
+      return c.json({ error: 'Family not found' }, 404)
+    }
+
+    await db.update(families).set({
+      previewImageStorageKey: filePath,
+    }).where(eq(families.id, objectId))
+  }
 
   return c.json({
     uploadUrl: signed.url,
