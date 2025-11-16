@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
+import { generateUUID } from "@/lib/utils";
 import {
   Dialog,
   DialogContent,
@@ -117,7 +118,7 @@ export function AddFamilyDialog({ open, onOpenChange }: AddFamilyDialogProps) {
 
     try {
       // Generate a unique ID for the family
-      const familyId = crypto.randomUUID();
+      const familyId = generateUUID();
 
       // Step 1: Create the family in the database first
       const createResponse = await fetch("/api/family", {

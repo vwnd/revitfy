@@ -15,6 +15,7 @@ import { Upload, X } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useQueryClient } from "@tanstack/react-query";
 import { authClient } from "@/lib/auth-client";
+import { generateUUID } from "@/lib/utils";
 
 interface CreatePlaylistDialogProps {
   open: boolean;
@@ -72,7 +73,7 @@ export function CreatePlaylistDialog({
 
     try {
       // Generate a unique ID for the playlist
-      const playlistId = crypto.randomUUID();
+      const playlistId = generateUUID();
 
       // Step 1: Upload preview image if provided
       let previewImageStorageKey: string | undefined;

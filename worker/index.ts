@@ -3,7 +3,6 @@ import { Hono } from 'hono'
 import { getDb } from './db'
 import familyRoutes from './family'
 import playlistRoutes from './playlist'
-import { auth } from './auth'
 
 export interface Context {
   Bindings: {
@@ -20,7 +19,11 @@ export interface Context {
 
 const app = new Hono<Context>()
 
-app.on(["POST", "GET"], "/api/auth/*", (c) => auth.handler(c.req.raw));
+app.on(["POST", "GET"], "/api/auth/*", async (c) => {
+  const { getAuth } = await import('./auth');
+  const auth = getAuth(c.env);
+  return auth.handler(c.req.raw);
+});
 
 // Database helper middleware
 app.use('*', async (c, next) => {
